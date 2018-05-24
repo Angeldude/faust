@@ -3,14 +3,17 @@
 #-------------------------------------------------------------------
 # Wrapping resources
 
-CPP_WRAPPER=webaudio-asm.cpp
-JS_WRAPPER=webaudio-asm-emcc.js
+CODE_WRAPPER=""
+JS_WRAPPER=""
 COMB="false"
 COMB_SRC=
 COMB_EXPORTED=
 COMB_WRAPPED=
 COMB_WRAPPED_FILES=
 COMB_SEP=
+
+EMCC="false"
+POLY="false"
 
 EXPORTED_MONO="['_"$name"_constructor','_"$name"_destructor','_"$name"_getSampleRate','_"$name"_init','_"$name"_instanceInit','_"$name"_instanceConstants','_"$name"_instanceResetUserInterface','_"$name"_instanceClear','_"$name"_compute','_"$name"_getNumInputs','_"$name"_getNumOutputs','_"$name"_setParamValue','_"$name"_getParamValue','_"$name"_getJSON']"
 
@@ -21,15 +24,15 @@ EXPORTED_POLY="['_"$name"_poly_constructor','_"$name"_poly_destructor','_"$name"
 
 if [ -f $FAUST_LIB_PATH/music.lib ]
 then
-  FAUSTLIB=$FAUST_LIB_PATH
+    FAUSTLIB=$FAUST_LIB_PATH
 elif [ -f /usr/local/share/faust/music.lib ]
 then
-  FAUSTLIB=/usr/local/share/faust/
+    FAUSTLIB=/usr/local/share/faust/
 elif [ -f /usr/share/faust/music.lib ]
 then
-  FAUSTLIB=/usr/share/faust/
+    FAUSTLIB=/usr/share/faust/
 else
-  echo "$0: Cannot find Faust library dir (usually /usr/local/share/faust)"
+    echo "$0: Cannot find Faust library dir (usually /usr/local/share/faust)"
 fi
 
 
@@ -41,14 +44,17 @@ fi
 
 for p in $@; do
     if [ $p = "-help" ] || [ $p = "-h" ]; then
-        echo "faust2asmjs [-poly] [-comb] <file.dsp>"
+        echo "faust2asmjs [-poly] [-comb] [-emcc] <file.dsp>"
         echo "Use '-poly' to produce a polyphonic DSP, ready to be used with MIDI events"
-        echo "Use '-comb' to combine several DSP in a unique resulting 'comb.js' file, sharing the same Emcripten runtime"
+        echo "Use '-comb' to combine several DSP in a unique resulting 'comb.js' file, sharing the same Emscripten runtime"
+        echo "Use '-emcc' to compile C++ generated code to asm.js with Emscripten, otherwise the internal asm.js backend is used"
+    	exit
     elif [ $p = "-comb" ]; then
         COMB="true"
     elif [ $p = "-poly" ]; then
-        CPP_WRAPPER=webaudio-asm-poly.cpp
-        JS_WRAPPER=webaudio-asm-poly-emcc.js
+        POLY="true"
+    elif [ $p = "-emcc" ]; then
+        EMCC="true"
     elif [ ${p:0:1} = "-" ]; then
 	    OPTIONS="$OPTIONS $p"
 	elif [[ -e "$p" ]]; then
@@ -57,6 +63,30 @@ for p in $@; do
 	    OPTIONS="$OPTIONS $p"        
 	fi
 done
+
+#-------------------------------------------------------------------
+# Set the compilation wrapping files depending of the compilation options
+#
+
+if [ $POLY = true ]; then
+    if [ $EMCC = "true" ]; then
+        echo "Compiled with 'emcc' in polyphonic mode"
+        CODE_WRAPPER=webaudio-asm-poly.cpp
+        JS_WRAPPER=webaudio-asm-poly-emcc.js
+    else
+        echo "Compiled with 'asm.js' backend in polyphonic mode"
+        CODE_WRAPPER=webaudio-asm-poly-standalone-wrapper.js
+    fi
+else
+    if [ $EMCC = "true" ]; then
+        echo "Compiled with 'emcc'"
+        CODE_WRAPPER=webaudio-asm.cpp
+        JS_WRAPPER=webaudio-asm-emcc.js       
+    else
+        echo "Compiled with 'asm.js' backend"
+        CODE_WRAPPER=webaudio-asm-standalone-wrapper.js
+    fi
+fi
 
 #-------------------------------------------------------------------
 # compile the *.dsp files
@@ -68,69 +98,95 @@ if [ $COMB = "false" ]; then
 for f in $FILES; do
     name=$(basename "$f" .dsp)
     
-    # compile the C++ code
-    faust -a $FAUSTLIB/webaudio/$CPP_WRAPPER -i -uim -cn $name $OPTIONS $f -o $name.cpp || exit
-    
-    if [ $CPP_WRAPPER = webaudio-asm.cpp ]; then
-        EXPORTED=$EXPORTED_MONO
+    # compile the Faust DSP to C++ or asm.js code
+    if [ $EMCC = "true" ]; then
+        faust -a $FAUSTLIB/webaudio/$CODE_WRAPPER -i -uim -cn $name $OPTIONS $f -o $name.cpp || exit
     else
-        EXPORTED=$EXPORTED_POLY
-	fi
+        faust -lang ajs -a $FAUSTLIB/webaudio/$CODE_WRAPPER -cn $name $OPTIONS $f -o $name.js || exit
+    fi
     
-    # compile the C++ code to asm.js
-    emcc -O3 --memory-init-file 0 $name.cpp -s TOTAL_MEMORY=100663296 --post-js $FAUSTLIB/webaudio/$JS_WRAPPER -o $name-temp.js -s EXPORTED_FUNCTIONS=$EXPORTED || exit
-   
-    # compose the asm.js code
-    sed -e "s/DSP/"$name"/g" $name-temp.js > $name.js
-    
-    rm $name-temp.js
-    rm $name.cpp
+    if [ $EMCC = "true" ]; then
+        
+        # prepare emcc compilation files
+        if [ $POLY = false ]; then
+            EXPORTED=EXPORTED_MONO
+        else
+            EXPORTED=EXPORTED_POLY
+        fi
 
-	# collect binary file name for FaustWorks
+        # compile the C++ code to asm.js
+        emcc -O3 --memory-init-file 0 $name.cpp -s TOTAL_MEMORY=100663296 --post-js $FAUSTLIB/webaudio/$JS_WRAPPER -o $name-temp.js -s EXPORTED_FUNCTIONS=$EXPORTED || exit
+   
+        # compose the asm.js code
+        sed -e "s/DSP/"$name"/g" $name-temp.js > $name.js
+
+        rm $name-temp.js
+        rm $name.cpp
+    fi
+
+	# collect binary file name
 	BINARIES="$BINARIES$name.js;"
 
 done
 
 else
 
+echo "Compiled with 'comb' mode"
+
 for f in $FILES; do
-    name=${f%.dsp}
+    name=$(basename "$f" .dsp)
     
-    # compile the C++ code
-    faust -a $FAUSTLIB/webaudio/$CPP_WRAPPER -i -uim -cn $name $OPTIONS $f -o $name.cpp || exit
-    
-    if [ $CPP_WRAPPER = webaudio-asm.cpp ]; then
-        EXPORTED=$EXPORTED_MONO
+    # compile the Faust DSP to C++ or asm.js code
+    if [ $EMCC = "true" ]; then
+        faust -a $FAUSTLIB/webaudio/$CODE_WRAPPER -i -uim -cn $name $OPTIONS $f -o $name.cpp || exit
     else
-        EXPORTED=$EXPORTED_POLY
-	fi
+        faust -lang ajs -a $FAUSTLIB/webaudio/$CODE_WRAPPER -cn $name $OPTIONS $f -o $name-temp.js || exit
+    fi
     
-    # compose the asm.js code
-    sed -e "s/DSP/"$name"/g" $FAUSTLIB/webaudio/$JS_WRAPPER > $name-wrapper.js
+    if [ $EMCC = "true" ]; then
     
-    COMB_SRC+=$name.cpp
-    COMB_SRC+=" "
-    
-    COMB_EXPORTED+=$COMB_SEP$EXPORTED
-    COMB_SEP=","
-    
-    COMB_WRAPPED_FILES+=$name-wrapper.js
-    COMB_WRAPPED_FILES+=" "
-    
-    COMB_WRAPPED+=" --post-js "
-    COMB_WRAPPED+=$name-wrapper.js
+        # prepare emcc compilation files
+        if [ $POLY = false ]; then
+            EXPORTED=EXPORTED_MONO
+        else
+            EXPORTED=EXPORTED_POLY
+        fi
+
+        # compose the asm.js code
+        sed -e "s/DSP/"$name"/g" $FAUSTLIB/webaudio/$JS_WRAPPER > $name-wrapper.js
+        
+        COMB_SRC+=$name.cpp
+        COMB_SRC+=" "
+        
+        COMB_EXPORTED+=$COMB_SEP$EXPORTED
+        COMB_SEP=","
+        
+        COMB_WRAPPED_FILES+=$name-wrapper.js
+        COMB_WRAPPED_FILES+=" "
+        
+        COMB_WRAPPED+=" --post-js "
+        COMB_WRAPPED+=$name-wrapper.js
+        
+    else
+        echo $name-temp.js
+        cat $name-temp.js >> comb.js
+        rm $name-temp.js
+    fi
   	
 done
 
-# compile final file
-emcc -O2 --memory-init-file 0 $COMB_SRC -s TOTAL_STACK=20971520 -s TOTAL_MEMORY=41943040 $COMB_WRAPPED -o comb.js \
-    -s EXPORTED_FUNCTIONS="["$COMB_EXPORTED"]" || exit
-
-# collect binary file name for FaustWorks
-BINARIES="comb.js;"
+if [ $EMCC = "true" ]; then
+    # compile final file
+    emcc -O2 --memory-init-file 0 $COMB_SRC -s TOTAL_MEMORY=100663296 $COMB_WRAPPED -o comb.js \
+        -s EXPORTED_FUNCTIONS="["$COMB_EXPORTED"]" || exit
 
 rm $COMB_SRC
 rm $COMB_WRAPPED_FILES
+
+fi
+
+# collect binary file name
+BINARIES="comb.js;"
 
 fi
 

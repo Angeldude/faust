@@ -128,9 +128,7 @@ class netjackaudio : public audio
             jack_set_net_slave_shutdown_callback(fNet, netShutdown, this);
         #endif
             jack_set_net_slave_sample_rate_callback(fNet, netSampleRate, this);
-            
             jack_set_net_slave_buffer_size_callback(fNet, netBufferSize, this);
-            
             jack_set_net_slave_error_callback(fNet, netError, this);
 
             return true;
@@ -200,6 +198,11 @@ class netjackaudio : public audio
             }
         }
         
+        virtual bool isConnexionActive()
+        {
+            return jack_net_slave_is_active(fNet);
+        }
+
         void setDsp(dsp* DSP)
         {
             fDSP = DSP;
@@ -255,7 +258,7 @@ class netjackaudio_control : public netjackaudio, public ControlUI {
         
         virtual ~netjackaudio_control() 
         {}
-        
+    
         bool isConnexionActive()
         {
             return jack_net_slave_is_active(fNet);
@@ -321,7 +324,7 @@ class netjackaudio_midicontrol : public netjackaudio, public ControlUI, public j
         
         virtual ~netjackaudio_midicontrol() 
         {}
-        
+    
         bool isConnexionActive()
         {
             return jack_net_slave_is_active(fNet);

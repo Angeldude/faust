@@ -1,6 +1,3 @@
-#ifndef _BOXES_
-#define _BOXES_
-
 /************************************************************************
  ************************************************************************
     FAUST compiler
@@ -22,7 +19,8 @@
  ************************************************************************
  ************************************************************************/
 
-
+#ifndef _BOXES_
+#define _BOXES_
 
 /*****************************************************************************
 ******************************************************************************
@@ -61,7 +59,6 @@ Tree boxIdent(const char* name);
 bool isBoxIdent(Tree t);
 bool isBoxIdent(Tree t, const char** name);
 
-
 /*****************************************************************************
 							    	Numbers
 *****************************************************************************/
@@ -74,7 +71,6 @@ bool  isBoxReal(Tree t);
 
 bool  isBoxInt(Tree t, int* i);
 bool  isBoxReal(Tree t, double* r);
-
 
 /*****************************************************************************
 							    	Waveform
@@ -96,7 +92,6 @@ Tree boxCut();
 bool isBoxWire(Tree t);
 bool isBoxCut(Tree t);
 
-
 /*****************************************************************************
 						Symbolic Boxes with symbolic slots
 *****************************************************************************/
@@ -109,7 +104,6 @@ bool isBoxSymbolic(Tree t);
 
 bool isBoxSlot(Tree t, int* id);
 bool isBoxSymbolic(Tree t, Tree& slot, Tree& body);
-
 
 /*****************************************************************************
 							  Composition of Boxes
@@ -140,7 +134,6 @@ bool isBoxIPar(Tree t, Tree& x, Tree& y, Tree& z);
 bool isBoxISeq(Tree t, Tree& x, Tree& y, Tree& z);
 bool isBoxISum(Tree t, Tree& x, Tree& y, Tree& z);
 bool isBoxIProd(Tree t, Tree& x, Tree& y, Tree& z);
-
 
 /*****************************************************************************
                         Static information on Boxes
@@ -177,16 +170,13 @@ bool isClosure	(Tree t, Tree& abstr, Tree& genv, Tree& vis, Tree& lenv);
 Tree boxAccess (Tree exp, Tree id);
 bool isBoxAccess(Tree t, Tree& exp, Tree& id);
 
-
 /*****************************************************************************
                         Boxes with local definitions
 *****************************************************************************/
 
 Tree boxWithLocalDef (Tree body, Tree ldef);
 bool isBoxWithLocalDef (Tree t, Tree& body, Tree& ldef);
-
 Tree boxWithRecDef (Tree body, Tree ldef);
-
 
 /*****************************************************************************
                         Modification of local definitions
@@ -194,7 +184,6 @@ Tree boxWithRecDef (Tree body, Tree ldef);
 
 Tree boxModifLocalDef (Tree body, Tree ldef);
 bool isBoxModifLocalDef (Tree t, Tree& body, Tree& ldef);
-
 
 /*****************************************************************************
 							 Error Boxe
@@ -235,7 +224,6 @@ bool isBoxPrim3	(Tree s, prim3* p);
 bool isBoxPrim4	(Tree s, prim4* p);
 bool isBoxPrim5	(Tree s, prim5* p);
 
-
 /*****************************************************************************
 							 Foreign Functions
 *****************************************************************************/
@@ -244,16 +232,13 @@ Tree boxFFun (Tree ff);
 bool isBoxFFun	(Tree s);
 bool isBoxFFun	(Tree s, Tree& ff);
 
-
 Tree boxFConst      (Tree type, Tree name, Tree file);
 bool isBoxFConst    (Tree s);
 bool isBoxFConst    (Tree s, Tree& type, Tree& name, Tree& file);
 
-
 Tree boxFVar      (Tree type, Tree name, Tree file);
 bool isBoxFVar    (Tree s);
 bool isBoxFVar    (Tree s, Tree& type, Tree& name, Tree& file);
-
 
 /*****************************************************************************
 							 Modules
@@ -270,7 +255,6 @@ bool isBoxLibrary (Tree s, Tree& filename);
 
 Tree importFile(Tree filename);
 bool isImportFile(Tree s, Tree& filename);
-
 
 /*****************************************************************************
 							 User Interface Elements
@@ -317,6 +301,9 @@ Tree boxHBargraph   (Tree label, Tree min, Tree max);
 bool isBoxHBargraph (Tree s);
 bool isBoxHBargraph (Tree s, Tree& label, Tree& min, Tree& max);
 
+Tree boxSoundfile(Tree label, Tree chan);
+bool isBoxSoundfile(Tree s);
+bool isBoxSoundfile(Tree s, Tree &label, Tree &chan);
 
 /*****************************************************************************
 							 case (pattern matching)
@@ -333,7 +320,6 @@ bool isBoxPatternMatcher	(Tree s, Automaton*& a, int& state, Tree& env, Tree& or
 Tree boxPatternVar	(Tree id);
 bool isBoxPatternVar(Tree s, Tree& id);
 
-
 /*****************************************************************************
 ******************************************************************************
 
@@ -344,6 +330,5 @@ bool isBoxPatternVar(Tree s, Tree& id);
 
 // return the number of input
 bool getBoxType (Tree box, int* inum, int* onum);
-
 
 #endif

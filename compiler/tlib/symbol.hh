@@ -36,12 +36,13 @@
  *
  */ 
  
-
 #ifndef     __SYMBOL__
 #define     __SYMBOL__
 
 #include <string>
 #include <map>
+
+#include "garbageable.hh"
 
 using namespace std;
 
@@ -50,23 +51,22 @@ using namespace std;
 /**
  * Symbols are unique objects with a name stored in a hash table.
  */
-class Symbol
-{
+class Symbol : public virtual Garbageable {
 	
  private:
 		 
 	static const int 	kHashTableSize = 511;					///< Size of the hash table (a prime number is recommended)
     static Symbol*		gSymbolTable[kHashTableSize];			///< Hash table used to store the symbols
-	
+    static map<const char*, unsigned int> gPrefixCounters;
 	
  // Fields
-    char*			fName;										///< Name of the symbol
-    unsigned int			fHash;										///< Hash key computed from the name and used to determine the hash table entry
+    string			fName;										///< Name of the symbol
+    unsigned int	fHash;										///< Hash key computed from the name and used to determine the hash table entry
     Symbol*			fNext;										///< Next symbol in the hash table entry
 	void*			fData;										///< Field to user disposal to store additional data
 	
  // Constructors & destructors
-    Symbol (char* str, unsigned int hsh, Symbol* nxt);          ///< Constructs a new symbol ready to be placed in the hash table
+    Symbol (const string&, unsigned int hsh, Symbol* nxt);      ///< Constructs a new symbol ready to be placed in the hash table
    ~Symbol ();													///< The Destructor is never used
 	
  // Others
@@ -89,19 +89,20 @@ class Symbol
 	
 	friend void* 			getUserData (Symbol* sym);
 	friend void 			setUserData (Symbol* sym, void* d);
+    
+    static void init ();
 		
 };
 
 inline Symbol*			symbol (const char* str) 	{ return Symbol::get(str); } 	///< Returns (and creates if new) the symbol of name \p str
 inline Symbol*			symbol (const string& str) 	{ return Symbol::get(str); }	///< Returns (and creates if new) the symbol of name \p str
 inline Symbol*			unique (const char* str) 	{ return Symbol::prefix(str);}	///< Returns a new unique symbol of name strxxx
-inline const char* 	name (Symbol* sym) 			{ return sym->fName; }			///< Returns the name of a symbol
+inline const char* 	name (Symbol* sym) 			{ return sym->fName.c_str(); }		///< Returns the name of a symbol
 	
 inline void* 			getUserData (Symbol* sym) 			{ return sym->fData; }		///< Returns user data
-inline void 			setUserData (Symbol* sym, void* d) 	{ sym->fData=d; }			///< Set user data
+inline void 			setUserData (Symbol* sym, void* d) 	{ sym->fData = d; }			///< Set user data
 
 inline ostream& operator << (ostream& s, const Symbol& n) { return n.print(s); }
-
 
 typedef Symbol* Sym;
 

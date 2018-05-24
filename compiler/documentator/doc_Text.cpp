@@ -19,21 +19,19 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include <stdio.h>
 #include <string.h>
-#include "doc_Text.hh"
-#include "compatibility.hh"
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
-#include <assert.h>
 #include <cmath>
 #include <stdlib.h>
 
 #include "floats.hh"
+#include "doc_Text.hh"
+#include "compatibility.hh"
+#include "exception.hh"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -51,10 +49,7 @@
 #define M_E 2.71828182845904523536
 #endif
 
-extern bool gInternDoubleSwitch;
 const string symbolicNumber (double n);
-
-
 
 #if 0
 /**
@@ -65,20 +60,19 @@ const string symbolicNumber (double n);
 
 static void zdel(char* c)
 {
-    int     l = strlen(c) - 1;
-    bool    f = (c[l] == 'f');
+    int l = strlen(c) - 1;
+    bool f = (c[l] == 'f');
 
     if (f) c[l--] = 0;      // remove trailing if any f
-    while ( l>1 && c[l-1] != '.' && c[l] == '0')  c[l--] = 0;
+    while (l>1 && c[l-1] != '.' && c[l] == '0')  c[l--] = 0;
     if (f) c[++l] = 'f';    // restaure trailing f if needed
 }
 #endif
 
-string docT (char* c) 	{ return string(c); }
-string docT (int n) 	{ char c[64]; snprintf(c, 63, "%d",n);  return string(c); }
-string docT (long n) 	{ char c[64]; snprintf(c, 63, "%ld",n); return string(c); }
-string docT (double n) { return symbolicNumber(n); }
-
+string docT(char* c){ return string(c); }
+string docT(int n) { char c[64]; snprintf(c, 63, "%d", n);  return string(c); }
+string docT(long n) { char c[64]; snprintf(c, 63, "%ld", n); return string(c); }
+string docT(double n) { return symbolicNumber(n); }
 
 //
 //*****************************SYMBOLIC NUMBER REPRESENTATION*******************
@@ -142,7 +136,7 @@ static bool AlmostEqual(double A, double B)
  */
 bool isPiPower (double n, string& s)
 {
-    assert(n>0);
+    faustassert(n>0);
     stringstream ss (stringstream::out|stringstream::in);
     int k = (int)floor(log(n)/log(M_PI));
     if ( AlmostEqual(n, exp(k * log(M_PI))) && (k!=0) && (abs(k)<5.0) ) {
@@ -162,10 +156,10 @@ bool isPiPower (double n, string& s)
  */
 bool isExpPower (double n, string& s)
 {
-    assert(n>0);
+    faustassert(n>0);
     stringstream ss (stringstream::out|stringstream::in);
     int k = (int)floor(log(n));
-    if ( AlmostEqual(n, exp(k)) && (k!=0) && (abs(k)<5.0) ) {
+    if ( AlmostEqual(n, exp(float(k))) && (k!=0) && (abs(k)<5.0) ) {
         ss << "e";
         if (k!=1)  ss << "^{"<< k <<"}";
         s = ss.str();
@@ -182,7 +176,7 @@ bool isExpPower (double n, string& s)
  */
 bool isSymbolicPower (double n, string& s)
 {
-    assert(n>0);
+    faustassert(n>0);
     if (isPiPower(n,s)) {
         return true;
     } else if (isExpPower(n,s)) {
@@ -216,15 +210,15 @@ const string addFraction (int num, int denom, const string& exp)
 /**
  * Return symbolic or numerical representation of n>0
  */
-const string positiveSymbolicNumber (double n)
+const string positiveSymbolicNumber(double n)
 {
     string s;
-    assert(n>0);
+    faustassert(n>0);
 
     // Try to find a symbolic representation
 
-    for (int i=1;i<10;i++) {
-        for(int j=1;j<10;j++) {
+    for (int i=1; i<10; i++) {
+        for(int j=1; j<10; j++) {
             if (isSymbolicPower(i*n/j,s)) {
                 return addFraction(j,i,s);
             }
@@ -250,9 +244,7 @@ const string positiveSymbolicNumber (double n)
     }
 
     return s;
-
 }
-
 
 /**
  * Return symbolic or numerical representation of n

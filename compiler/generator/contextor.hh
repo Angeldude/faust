@@ -1,7 +1,7 @@
 /************************************************************************
  ************************************************************************
     FAUST compiler
-	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
     ---------------------------------------------------------------------
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,15 +24,15 @@
 	22/01/05 : corrected bug on bool signals cached in float variables
 *****************************************************************************/
 
+#ifndef __CONTEXTOR__
+#define __CONTEXTOR__
 
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <assert.h>
 
-#ifndef __CONTEXTOR__
-#define __CONTEXTOR__
+#include "exception.hh"
 
 /**
  *	An automatic stack of contexts
@@ -44,11 +44,11 @@ class contextor
 	static int	pile[1024];
 
  public:
-	contextor(int n)	{ top=0; pile[top]=n; }	// contructor to be called only once at the
-												// top level to initialize the stack
+	contextor(int n)	{ top = 0; pile[top] = n; }	// contructor to be called only once at the
+                                                    // top level to initialize the stack
 
-	contextor() 		{ assert(top >= 0 && top < 1023); int n = pile[top++]; pile[top] = n;}
-	~contextor() 		{top--; }
+	contextor() 		{ faustassert(top >= 0 && top < 1023); int n = pile[top++]; pile[top] = n; }
+	~contextor() 		{ top--; }
 
 	void set(int n)	{ pile[top] = n; }
 	int get()	{ return pile[top]; }

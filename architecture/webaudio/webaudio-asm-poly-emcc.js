@@ -18,16 +18,21 @@
 
 var faust = faust || {};
 
+Module.lengthBytesUTF8 = function(str) 
+{
+	var len=0;for(var i=0;i<str.length;++i){var u=str.charCodeAt(i);if(u>=55296&&u<=57343)u=65536+((u&1023)<<10)|str.charCodeAt(++i)&1023;if(u<=127){++len}else if(u<=2047){len+=2}else if(u<=65535){len+=3}else if(u<=2097151){len+=4}else if(u<=67108863){len+=5}else{len+=6}}return len;
+}
+
 // Polyphonic DSP : has to have 'freq', 'gate', 'gain' parameters to be possibly triggered with keyOn, keyOff events.
 
 var DSP_poly_constructor = Module.cwrap('DSP_poly_constructor', 'number', ['number']);
 var DSP_poly_destructor = Module.cwrap('DSP_poly_destructor', null, ['number']);
 var DSP_poly_getSampleRate = Module.cwrap('DSP_poly_getSampleRate', 'number', ['number']);
-var DSP_poly_init = Module.cwrap('DSP_poly_init', 'number', ['number','number']);
-var DSP_poly_instanceInit = Module.cwrap('DSP_poly_instanceInit', 'number', ['number','number']);
-var DSP_poly_instanceConstants = Module.cwrap('DSP_poly_instanceConstants', 'number', ['number','number']);
-var DSP_poly_instanceResetUserInterface = Module.cwrap('DSP_poly_instanceResetUserInterface', 'number', ['number']);
-var DSP_poly_instanceClear = Module.cwrap('DSP_poly_instanceClear', 'number', ['number']);
+var DSP_poly_init = Module.cwrap('DSP_poly_init', null, ['number','number']);
+var DSP_poly_instanceInit = Module.cwrap('DSP_poly_instanceInit', null, ['number','number']);
+var DSP_poly_instanceConstants = Module.cwrap('DSP_poly_instanceConstants', null, ['number','number']);
+var DSP_poly_instanceResetUserInterface = Module.cwrap('DSP_poly_instanceResetUserInterface', null, ['number']);
+var DSP_poly_instanceClear = Module.cwrap('DSP_poly_instanceClear', null, ['number']);
 var DSP_poly_compute = Module.cwrap('DSP_poly_compute', null, ['number', 'number', 'number', 'number']);
 var DSP_poly_getNumInputs = Module.cwrap('DSP_poly_getNumInputs', 'number', ['number']);
 var DSP_poly_getNumOutputs = Module.cwrap('DSP_poly_getNumOutputs', 'number', ['number']);
@@ -70,7 +75,7 @@ faust.DSP_poly = function (context, buffer_size, max_polyphony, callback) {
         if (ouputs_items.length > 0 && handler && ouputs_timer-- === 0) {
             ouputs_timer = 5;
             for (var i = 0; i < ouputs_items.length; i++) {
-                Module.writeStringToMemory(ouputs_items[i], path_ptr);
+                Module.stringToUTF8(ouputs_items[i], path_ptr, Module.lengthBytesUTF8(ouputs_items[i]) + 1);
                 handler(ouputs_items[i], DSP_poly_getParamValue(ptr, path_ptr));
             }
         }
@@ -100,12 +105,19 @@ faust.DSP_poly = function (context, buffer_size, max_polyphony, callback) {
     
     function parse_item (item) 
     {
-        if (item.type === "vgroup" || item.type === "hgroup" || item.type === "tgroup") {
+        if (item.type === "vgroup"
+            || item.type === "hgroup"
+            || item.type === "tgroup") {
             parse_items(item.items);
-        } else if (item.type === "hbargraph" || item.type === "vbargraph") {
+        } else if (item.type === "hbargraph"
+                   || item.type === "vbargraph") {
             // Keep bargraph adresses
             ouputs_items.push(item.address);
-        } else if (item.type === "vslider" || item.type === "hslider" || item.type === "button" || item.type === "checkbox" || item.type === "nentry") {
+        } else if (item.type === "vslider"
+                   || item.type === "hslider"
+                   || item.type === "button"
+                   || item.type === "checkbox"
+                   || item.type === "nentry") {
             // Keep inputs adresses
             inputs_items.push(item.address);
         }
@@ -171,7 +183,6 @@ faust.DSP_poly = function (context, buffer_size, max_polyphony, callback) {
         }
         
         if (numOut > 0) {
-        
             outs = Module._malloc(ptr_size * numOut); 
             for (i = 0; i < numOut; i++) { 
                 HEAP32[(outs >> 2) + i] = Module._malloc(buffer_size * sample_size);
@@ -315,13 +326,13 @@ faust.DSP_poly = function (context, buffer_size, max_polyphony, callback) {
         
         setParamValue : function (path, val) 
         {
-            Module.writeStringToMemory(path, path_ptr);
+            Module.stringToUTF8(path, path_ptr, Module.lengthBytesUTF8(path) + 1);
             DSP_poly_setParamValue(ptr, path_ptr, val);
         },
         
         getParamValue : function (path) 
         {
-            Module.writeStringToMemory(path, path_ptr);
+            Module.stringToUTF8(path, path_ptr, Module.lengthBytesUTF8(path) + 1);
             return DSP_poly_getParamValue(ptr, path_ptr);
         },
                 

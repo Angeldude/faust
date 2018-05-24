@@ -1,45 +1,67 @@
+/************************************************************************
+ ************************************************************************
+ FAUST compiler
+ Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+ ---------------------------------------------------------------------
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 /*
-	sourcereader : Faust source file reader
-	
-	This component is in charge of mapping filenames to 
-	the list of faust definitions they contain.
-	
+ sourcereader : Faust source file reader
+ This component is in charge of mapping filenames to
+ the list of faust definitions they contain.
 */
+
 #include <iostream>
 #include <map>
 #include <list>
 #include <string>
-#include <libgen.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
+#ifdef EMCC 
+#include <emscripten.h>
+#endif
+
+#include "compatibility.hh"
 #include "sourcereader.hh"
 #include "sourcefetcher.hh"
 #include "enrobage.hh"
 #include "ppbox.hh"
+#include "exception.hh"
+#include "global.hh"
 #include "Text.hh"
 
 using namespace std;
 
-extern map<Tree, set<Tree> > gMetaDataSet;
-extern string gMasterDocument;
-extern vector<Tree> gDocVector;
-extern bool gLatexDocSwitch;
-
 /****************************************************************
- 						Parser variables
-*****************************************************************/
+ Parser variables
+ *****************************************************************/
 
 int yyparse();
-void yyrestart( FILE *new_file );
-struct yy_buffer_state* yy_scan_string (const char *yy_str  ); // In principle YY_BUFFER_STATE
+int yylex_destroy(void);
+void yyrestart(FILE* new_file);
+struct yy_buffer_state* yy_scan_string(const char *yy_str); // In principle YY_BUFFER_STATE
 
-extern int 		yyerr;
-extern int 		yydebug;
-extern FILE*	yyin;
-extern int		yylineno;
-extern const char * yyfilename;
-
-extern Tree 	gResult;
-extern Tree 	gResult2;
+extern int yyerr;
+extern int yydebug;
+extern FILE* yyin;
+extern int yylineno;
+extern const char* yyfilename;
 
 /**
  * Checks an argument list for containing only 
@@ -48,10 +70,10 @@ extern Tree 	gResult2;
  * @param args the argument list to check
  * @return true if it contains only identifiers 
  */
- 
+
 static bool standardArgList(Tree args)
 {
-	map<Tree,int>	L;
+	map<Tree,int> L;
 	while (isList(args)) {
 		if (!isBoxIdent(hd(args))) return false;
 		if (++L[hd(args)] > 1) return false;
@@ -60,39 +82,46 @@ static bool standardArgList(Tree args)
 	return true;
 }
 
-static void printPatternError(Tree symbol, Tree lhs1, Tree rhs1, Tree lhs2, Tree rhs2)
+static string printPatternError(Tree symbol, Tree lhs1, Tree rhs1, Tree lhs2, Tree rhs2)
 {
-    if (symbol==NULL) {
-        cerr 	<< "ERROR (file " << yyfilename << ":" << yylineno << ") : Inconsistent number of parameters in pattern-matching rule: "
+    stringstream error;
+    
+    if (symbol == NULL) {
+        error << "ERROR : inconsistent number of parameters in pattern-matching rule: "
         << boxpp(reverse(lhs2)) << " => " << boxpp(rhs2) << ";"
-        << " previous rule was: "
+        << " previous rule was: " 
         << boxpp(reverse(lhs1)) << " => " << boxpp(rhs1) << ";"
         << endl;
     } else {
-        cerr 	<< "ERROR (file " << yyfilename << ":" << yylineno << ") : in the definition of " << boxpp(symbol) << "\n"
+        error << "ERROR (file " << yyfilename << ":" << yylineno << ") : in the definition of " << boxpp(symbol) << endl
         << "Inconsistent number of parameters in pattern-matching rule: "
         << boxpp(reverse(lhs2)) << " => " << boxpp(rhs2) << ";"
         << " previous rule was: "
         << boxpp(reverse(lhs1)) << " => " << boxpp(rhs1) << ";"
         << endl;
     }
+    
+    return error.str();
 }
 
-Tree checkRulelist (Tree lr)
+Tree checkRulelist(Tree lr)
 {
 	Tree lrules = lr;
-	if (isNil(lrules)) { cerr << "ERROR (file " << yyfilename << ":" << yylineno << ") : a case expression can't be empty" << endl; exit(1); }
+	if (isNil(lrules)) {
+        stringstream error;
+        error << "ERROR (file " << yyfilename << ":" << yylineno << ") : a case expression can't be empty" << endl;
+        throw faustexception(error.str());
+    }
 	// first pattern used as a reference
 	Tree lhs1 = hd(hd(lrules));
 	Tree rhs1 = tl(hd(lrules));
 	int npat = len(lhs1); 
 	lrules = tl(lrules);
-	while (! isNil(lrules)) {
+	while (!isNil(lrules)) {
 		Tree lhs2 = hd(hd(lrules));
 		Tree rhs2 = tl(hd(lrules));
 		if (npat != len(lhs2)) {
-			printPatternError(NULL, lhs1,rhs1,lhs2,rhs2);
-			exit(1);
+            throw faustexception(printPatternError(NULL, lhs1, rhs1, lhs2, rhs2));
 		}
 		
 		lhs1 = lhs2;
@@ -102,28 +131,32 @@ Tree checkRulelist (Tree lr)
 	return lr;
 }
 
-static void printRedefinitionError(Tree symbol, list<Tree>& variants)
+static string printRedefinitionError(Tree symbol, list<Tree>& variants)
 {
-    cerr 	<< "ERROR (file " << yyfilename << ":" << yylineno << ") : multiple definitions of symbol " << boxpp(symbol) << endl;
-    for (list<Tree>::iterator p=variants.begin(); p!=variants.end(); p++) {
+    stringstream error;
+    
+    error << "ERROR (file " << yyfilename << ":" << yylineno << ") : multiple definitions of symbol " << boxpp(symbol) << endl;
+    for (list<Tree>::iterator p = variants.begin(); p != variants.end(); p++) {
         Tree params = hd(*p);
         Tree body = tl(*p);
-        
         if (isNil(params)) {
-            cerr << boxpp(symbol) << " = " << boxpp(body) << ";" << endl;
+            error << boxpp(symbol) << " = " << boxpp(body) << ";" << endl;
         } else {
-            cerr << boxpp(symbol) << boxpp(params) << " = " << boxpp(body) << ";" << endl;
+            error << boxpp(symbol) << boxpp(params) << " = " << boxpp(body) << ";" << endl;
         }
     }
+    
+    return error.str();
 }
 
 /**
- * Transforms a list of variants (arglist.body)
+ * Transforms a list of variants (arglist.body) 
  * into an abstraction or a boxCase.
  * @param symbol name only used in case of error
  * @param variants list of variants (arglist.body)
- * @return the corresponding box expression
+ * @return the corresponding box expression 
  */
+
 static Tree makeDefinition(Tree symbol, list<Tree>& variants)
 {
 	if (variants.size() == 1) {
@@ -136,22 +169,22 @@ static Tree makeDefinition(Tree symbol, list<Tree>& variants)
 		} else if (standardArgList(args)) {
 			return buildBoxAbstr(args, body);
 		} else {
-			return boxCase(cons(rhs,nil));
+			return boxCase(cons(rhs,gGlobal->nil));
 		}
 	} else {
 		list<Tree>::iterator p;
-		Tree	l = nil;
-		Tree	prev = *variants.begin();
-		int 	npat = len(hd(prev));
-        if (npat==0) {
-            printRedefinitionError(symbol, variants);
-            exit(1);
+		Tree l = gGlobal->nil;
+		Tree prev = *variants.begin();
+		int npat = len(hd(prev));
+        
+        if (npat == 0) {
+            throw faustexception(printRedefinitionError(symbol, variants));
         }
+        
 		for (p=variants.begin(); p!=variants.end(); p++) {
 			Tree cur = *p;
-			if ((npat==0) || (npat != len(hd(cur)))) {
-                printPatternError(symbol, hd(prev), tl(prev), hd(cur), tl(cur));
-				exit(1);
+			if ((npat == 0) || (npat != len(hd(cur)))) {
+                throw faustexception(printPatternError(symbol, hd(prev), tl(prev), hd(cur), tl(cur)));
 			}
 			prev = cur;
 			l = cons(*p,l);
@@ -162,21 +195,21 @@ static Tree makeDefinition(Tree symbol, list<Tree>& variants)
 
 /**
  * Formats a list of raw definitions represented by triplets
- * <name,arglist,body> into abstractions or pattern 
+ * <name, arglist, body> into abstractions or pattern
  * matching rules when appropriate.
  * 
  * @param rldef list of raw definitions in reverse order
  * @return the list of formatted definitions
  */
+
 Tree formatDefinitions(Tree rldef)
 {
-	map<Tree,list<Tree> > dic;
-	map<Tree,list<Tree> >::iterator p;
-	Tree ldef2 = nil;
+	map<Tree, list<Tree> > dic;
+	map<Tree, list<Tree> >::iterator p;
+	Tree ldef2 = gGlobal->nil;
 	Tree file;
-	
-	//cout << "Format definitions " << *rldef << endl;
-	// collects the definitions in a dictionnary
+   
+	// Collects the definitions in a dictionnary
 	while (!isNil(rldef)) {
 		Tree def = hd(rldef);		
 		rldef = tl(rldef);
@@ -188,96 +221,148 @@ Tree formatDefinitions(Tree rldef)
 		}
 	}
 	
-	// produce the definitions
-	
-	for (p=dic.begin(); p!=dic.end(); p++) {
-		ldef2 = cons (cons(p->first, makeDefinition(p->first,p->second)), ldef2);
+	// Produces the definitions
+	for (p = dic.begin(); p != dic.end(); p++) {
+		ldef2 = cons(cons(p->first, makeDefinition(p->first, p->second)), ldef2);
 	}
 	
-	//cout << "list of definitions : " << *ldef2 << endl;
 	return ldef2;
 }
 
 void SourceReader::checkName()
 {
-    if (gMasterDocument == yyfilename) {
+    if (gGlobal->gMasterDocument == yyfilename) {
         Tree name = tree("name");
-        if (gMetaDataSet.find(name) == gMetaDataSet.end()) {
-            gMetaDataSet[name].insert(tree(quote(strip_end(basename((char*)yyfilename), ".dsp"))));
+        if (gGlobal->gMetaDataSet.find(name) == gGlobal->gMetaDataSet.end()) {
+            gGlobal->gMetaDataSet[name].insert(tree(quote(stripEnd(basename((char*)yyfilename), ".dsp"))));
         }
+        gGlobal->gMetaDataSet[tree("filename")].insert(tree(quote(stripEnd(basename((char*)yyfilename), ".dsp"))));
     }
 }
 
 /**
- * Parse a single faust source file. returns the list of
+ * Parse a single Faust source file, returns the list of
  * definitions it contains.
  * 
  * @param fname the name of the file to parse
  * @return the list of definitions it contains
  */
 
-Tree SourceReader::parse(const char* fname)
+Tree SourceReader::parseFile(const char* fname)
 {
-    string fullpath;
-    char* fileBuf = 0;
-
     yyerr = 0;
+    yylineno = 1;
     yyfilename = fname;
-    
-    if (strstr(yyfilename,"http://") != 0) {
-        // We are requested to parse an URL file
-        int ret = http_fetch(yyfilename, &fileBuf);
-        if (ret == -1) {
-            http_perror("http fetch");
-            exit(1);
-        }
-        yy_scan_string(fileBuf);
-        yylineno = 1;
-        int r = yyparse();
-        if (r) {
-            fprintf(stderr, "Parse error : code = %d\n", r);
-        }
-        if (yyerr > 0) {
-            //fprintf(stderr, "Erreur de parsing 2, count = %d \n", yyerr);
-            exit(1);
-        }
+    string fullpath;
+ 
+    // We are requested to parse an URL file
+    if (strstr(yyfilename, "http://") != 0 || strstr(yyfilename, "https://") != 0) {
+        char* buffer = 0;
+    #ifdef EMCC
+        // Call JS code to load URL
+        buffer = (char*)EM_ASM_INT({
+            var dsp_code = "";
+            try {
+                var xmlhttp = new XMLHttpRequest();
+                xmlhttp.open("GET", Module.Pointer_stringify($0), false);
+                xmlhttp.send();
+                if (xmlhttp.status == 200) {
+                    dsp_code = xmlhttp.responseText;
+                }
+            } catch(e) {}
+            return allocate(intArrayFromString(dsp_code), 'i8', ALLOC_STACK);
+        }, yyfilename);
         
-        // we have parsed a valid file
-        fFilePathnames.push_back(fullpath);
+        Tree res = 0;
+        if (strlen(buffer) == 0) {
+            stringstream error;
+            error << "ERROR : unable to access URL '" << fname << "'" << endl;
+            throw faustexception(error.str());
+        } else {
+            yy_scan_string(buffer);
+            res = parseLocal(yyfilename);
+        }
+    #else
+        // Otherwise use http URL fetch code
+        if (http_fetch(yyfilename, &buffer) == -1) {
+            stringstream error;
+            error << "ERROR : unable to access URL '" << fname << "' : " << http_strerror() << endl;
+            throw faustexception(error.str());
+        }
+        yy_scan_string(buffer);
+        Tree res = parseLocal(yyfilename);
         // 'http_fetch' result must be deallocated
-        free(fileBuf);
-        checkName();
-        return gResult;
-
+        free(buffer);
+    #endif
+        return res;
+        
     } else {
-		// test for local url
-		if (strstr(yyfilename,"file://") != 0) {
+        
+        // Test for local url
+		if (strstr(yyfilename, "file://") != 0) {
 			yyfilename = &yyfilename[7]; // skip 'file://'
 		}
-		
-        // We are requested to parse a regular file
-        FILE* tmp_file = yyin = fopensearch(yyfilename, fullpath);
+        
+    #ifdef EMCC
+        // Try to open with the complete URL
+        Tree res = 0;
+        for (list<string>::iterator i = gGlobal->gImportDirList.begin(); i != gGlobal->gImportDirList.end(); i++) {
+            // Keep the created filename in the global state, so that the 'yyfilename'
+            // global variable always points to a valid string
+            gGlobal->gImportFilename = *i + fname;
+            if ((res = parseFile(gGlobal->gImportFilename.c_str()))) return res;
+        }
+        stringstream error;
+        error << "ERROR : unable to open file " << yyfilename << endl;
+        throw faustexception(error.str());
+    #else
+        string fullpath;
+        FILE* tmp_file = yyin = fopenSearch(yyfilename, fullpath); // Keep file to properly close it
         if (yyin == NULL) {
-            cerr << "ERROR : Unable to open file " << yyfilename << endl;
-            exit(1);
+            stringstream error;
+            error << "ERROR : unable to open file " << yyfilename << endl;
+            throw faustexception(error.str());
         }
-        yyrestart(yyin);	// make sure we scan from file again (in case we scanned a string just before)
-        yylineno = 1;
-        int r = yyparse();
-        if (r) {
-            cerr << "ERROR (file " << yyfilename << ":" << yylineno << ") : Parse error code " << r << endl;
-        }
-        if (yyerr > 0) {
-            //fprintf(stderr, "Erreur de parsing 2, count = %d \n", yyerr); 
-            exit(1);
-        }
-
-        // we have parsed a valid file
-        fFilePathnames.push_back(fullpath);
+        Tree res = parseLocal(fullpath.c_str());
         fclose(tmp_file);
-        checkName();
-        return gResult;
+        return res;
+    #endif
     }
+}
+
+Tree SourceReader::parseString(const char* fname)
+{
+    yyerr = 0;
+    yylineno = 1;
+    yyfilename = fname;
+    
+    yy_scan_string(gGlobal->gInputString);
+    
+    // Clear global "inputstring" so that imported files will be correctly parsed with "parse"
+    gGlobal->gInputString = NULL;
+    return parseLocal(fname);
+}
+
+Tree SourceReader::parseLocal(const char* fname)
+{
+    int r = yyparse();
+    stringstream error;
+
+    if (r) { 
+        error << "ERROR : parse code = " << r << endl;
+        throw faustexception(error.str());
+    }
+    if (yyerr > 0) {
+        error << "ERROR : parse code = " << yyerr << endl;
+        throw faustexception(error.str());
+    }
+
+    yylex_destroy();
+
+    // We have parsed a valid file
+    checkName();
+    fFilePathnames.push_back(fname);
+    return gGlobal->gResult;
 }
 
 /**
@@ -299,12 +384,20 @@ bool SourceReader::cached(string fname)
  * @return the list of definitions it contains
  */
 
-Tree SourceReader::getlist(const char* fname)
+Tree SourceReader::getList(const char* fname)
 {
 	if (!cached(fname)) {
-		fFileCache[fname] = parse(fname);
+        if (gGlobal->gInputString) {
+            fFileCache[fname] = parseString(fname);
+        } else {
+            fFileCache[fname] = parseFile(fname);
+        }
 	}
-    if (fFileCache[fname] == 0) exit(1);
+    /* to remove ?
+    if (fFileCache[fname] == 0) {
+        throw faustexception("getlist");
+    }
+    */
     return fFileCache[fname];
 }
 
@@ -316,16 +409,9 @@ Tree SourceReader::getlist(const char* fname)
 
 vector<string> SourceReader::listSrcFiles()
 {
-//	vector<string> 						srcfiles;
-
-//	for (map<string, Tree>::const_iterator p = fFileCache.begin(); p != fFileCache.end(); p++) {
-//		srcfiles.push_back(p->first);
-//	}
-
-//	return srcfiles;	
-	return fFilePathnames;
+    return fFilePathnames;
 }
- 
+
 /**
  * Return the list of definitions where all imports have been expanded.
  * 
@@ -333,28 +419,24 @@ vector<string> SourceReader::listSrcFiles()
  * @return the expanded list of definitions
  */
 
-Tree SourceReader::expandlist(Tree ldef)
+Tree SourceReader::expandList(Tree ldef)
 {
 	set<string> visited;
-	return expandrec(ldef, visited, nil);	
+	return expandRec(ldef, visited, gGlobal->nil);
 }
 
-Tree SourceReader::expandrec(Tree ldef, set<string>& visited, Tree lresult)
+Tree SourceReader::expandRec(Tree ldef, set<string>& visited, Tree lresult)
 {
 	for (;!isNil(ldef); ldef = tl(ldef)) {
 		Tree d = hd(ldef); 
 		Tree fname;
 		if (isNil(d)) {
 			// skill null definitions produced by declarations
-		} else if (isImportFile(d,fname)) {
+		} else if (isImportFile(d, fname)) {
 			const char* f = tree2str(fname);
-			//cerr << "import(" << f << ")" << endl;
-			
-			//string f = tree2str(fname);
 			if (visited.find(f) == visited.end()) {
 				visited.insert(f);
-				//Tree l = getlist(f);
-				lresult = expandrec(getlist(f), visited, lresult);
+				lresult = expandRec(getList(f), visited, lresult);
 			}
 			
 		} else {
@@ -366,20 +448,26 @@ Tree SourceReader::expandrec(Tree ldef, set<string>& visited, Tree lresult)
 
 void declareMetadata(Tree key, Tree value)
 {
-    if (gMasterDocument == yyfilename) {
-        // inside master document, no prefix needed to declare metadata
-        gMetaDataSet[key].insert(value);
+    if (gGlobal->gMasterDocument == yyfilename) {
+        // Inside master document, no prefix needed to declare metadata
+        gGlobal->gMetaDataSet[key].insert(value);
     } else {
         string fkey(yyfilename);
-        fkey += "/";
+        if (fkey != "") {
+            fkey += "/";
+        }
         fkey += tree2str(key);
-        gMetaDataSet[tree(fkey.c_str())].insert(value);
+        gGlobal->gMetaDataSet[tree(fkey.c_str())].insert(value);
     }
-    //cout << "Master " << gMasterDocument  << ", file " << yyfilename <<  " : declare " << *key << "," << *value << endl;
+}
+
+// Definition related metadata
+void declareDefinitionMetadata(Tree id, Tree key, Tree value)
+{
+    // not implemented yet
 }
 
 void declareDoc(Tree t)
 {
-	//gLatexDocSwitch = true;
-	gDocVector.push_back(t);
+	gGlobal->gDocVector.push_back(t);
 }

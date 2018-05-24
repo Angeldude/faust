@@ -18,30 +18,24 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  ************************************************************************
  ************************************************************************/
- 
- 
- 
+
 #include "propagate.hh"
 #include "prim2.hh"
-#include <assert.h>
 #include "ppbox.hh"
 #include "xtended.hh"
 #include "labels.hh"
 #include "Text.hh"
 #include "ppsig.hh"
 #include "names.hh"
-
-//extern bool gPrintDocSwitch;
-//static siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig);
-
-extern int gFTZMode;
+#include "exception.hh"
+#include "global.hh"
 
 ////////////////////////////////////////////////////////////////////////
 /**
  * propagate : box listOfSignal-> listOfSignal'
  *
- * Propage une liste de signaux de l'entrée vers la sortie d'une boite
- * La boite a été annotée aec son type 
+ * Propage a list of signals into a box expression representing a
+ * signal processor
  */
 ///////////////////////////////////////////////////////////////////////
 
@@ -132,7 +126,8 @@ siglist listConcat(const siglist& a, const siglist& b)
 Tree listConvert(const siglist& a)
 {
 	int 	n = (int)a.size();
-	Tree 	t=nil;
+	Tree 	t=gGlobal->nil;
+
 	while (n--) t = cons(a[n],t);
 	return t;
 }
@@ -155,8 +150,6 @@ siglist listLift(const siglist& l)
 	return r;
 }
 
-static int	gDummyInput = 10000;
-
 /**
  * Propagate computes the outputs signals of a block-diagram according to a list of input signals.
  *
@@ -167,14 +160,6 @@ static int	gDummyInput = 10000;
  *\return list of resulting signals
  */
 
-
-
-/**
- * Node used for memoization purposes
- */
-
-static Node PROPAGATEPROPERTY(symbol("PropagateProperty"));
-
 /**
  * Store the propagation result as a property of the arguments tuplet
  * @param args propagation arguments
@@ -182,7 +167,7 @@ static Node PROPAGATEPROPERTY(symbol("PropagateProperty"));
  */
 void setPropagateProperty(Tree args, const siglist&  lsig)
 {
-    setProperty(args, tree(PROPAGATEPROPERTY), listConvert(lsig));
+    setProperty(args, tree(gGlobal->PROPAGATEPROPERTY), listConvert(lsig));
 }
 
 
@@ -195,7 +180,7 @@ void setPropagateProperty(Tree args, const siglist&  lsig)
 bool getPropagateProperty(Tree args, siglist&  lsig)
 {
     Tree value;
-    if (getProperty(args, tree(PROPAGATEPROPERTY), value)) {
+    if (getProperty(args, tree(gGlobal->PROPAGATEPROPERTY), value)) {
         treelist2siglist(value, lsig);
         return true;
     } else {
@@ -213,7 +198,7 @@ bool getPropagateProperty(Tree args, siglist&  lsig)
  * @return the resulting list of output signals
  */
 
-siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig);
+siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist& lsig);
 
 
 /**
@@ -225,9 +210,9 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig);
  * @return the resulting list of output signals
  */
 
-siglist propagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
+siglist propagate (Tree slotenv, Tree path, Tree box, const siglist& lsig)
 {
-    Tree args =tree(PROPAGATEPROPERTY,slotenv,path,box,listConvert(lsig));
+    Tree args = tree(gGlobal->PROPAGATEPROPERTY,slotenv,path,box,listConvert(lsig));
     siglist result;
     if (! getPropagateProperty(args, result)) {
         result = realPropagate (slotenv, path, box, lsig);
@@ -267,7 +252,7 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 	prim4	p4;
 	prim5	p5;
 	
-    Tree	t1, t2, ff, label, cur, min, max, step, type, name, file, slot, body;
+    Tree	t1, t2, ff, label, cur, min, max, step, type, name, file, slot, body, chan;
     tvec    wf;
 	
 	
@@ -276,48 +261,48 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 	// Extended Primitives
 	
 	if (xt)	{
-		assert(lsig.size() == xt->arity());
+		faustassert(lsig.size() == xt->arity());
 		return makeList(xt->computeSigOutput(lsig));
 	}
 		
 	// Numbers and Constants
 	
 	else if (isBoxInt(box, &i)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigInt(i)); 
 	}
 	else if (isBoxReal(box, &r)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigReal(r)); 
 	}
 
     // A Waveform has two outputs it size and a period signal representing its content
 
     else if (isBoxWaveform(box)) 	{
-        assert(lsig.size()==0);
+        faustassert(lsig.size()==0);
         const tvec br = box->branches();
-        return listConcat(makeList(sigInt(br.size())), makeList(sigWaveform(br)));
+        return listConcat(makeList(sigInt(int(br.size()))), makeList(sigWaveform(br)));
     }
 
     else if (isBoxFConst(box, type, name, file))    { 
-        assert(lsig.size()==0); 
+        faustassert(lsig.size()==0); 
         return makeList(sigFConst(type, name, file)); 
     }
     
     else if (isBoxFVar(box, type, name, file))    { 
-        assert(lsig.size()==0); 
+        faustassert(lsig.size()==0); 
         return makeList(sigFVar(type, name, file)); 
     }
 	
 	// Wire and Cut
 	
 	else if (isBoxCut(box)) 				{ 
-		assert(lsig.size()==1); 
+		faustassert(lsig.size()==1); 
 		return siglist(); 
 	}
 	
 	else if (isBoxWire(box)) 				{ 
-		assert(lsig.size()==1); 
+		faustassert(lsig.size()==1); 
 		return lsig;  
 	}
 	
@@ -325,95 +310,131 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 	
 	else if (isBoxSlot(box)) 				{ 
 		Tree sig;
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		if (!searchEnv(box,sig,slotenv)) {
 			// test YO simplification des diagrames
 			//fprintf(stderr, "propagate : internal error (slot undefined)\n");
-			//exit(1);
-			sig = sigInput(++gDummyInput);
+			sig = sigInput(++gGlobal->gDummyInput);
 		}
 		return makeList(sig);
 	}
 	
 	else if (isBoxSymbolic(box, slot, body)) 				{ 
-		assert(lsig.size()>0); 
+		faustassert(lsig.size()>0); 
 		return propagate(pushEnv(slot,lsig[0],slotenv), path, body, listRange(lsig, 1, (int)lsig.size()));
 	}
 	
 	// Primitives
 	
 	else if (isBoxPrim0(box, &p0)) 			{ 
-		assert(lsig.size()==0); 
-		return makeList( p0() );  
+		faustassert(lsig.size()==0); 
+		return makeList(p0());
 	}
 	
 	else if (isBoxPrim1(box, &p1)) 				{ 
-		assert(lsig.size()==1); 
-		return makeList( p1(lsig[0]) );  
+		faustassert(lsig.size()==1); 
+		return makeList(p1(lsig[0]));
 	}
 	
 	else if (isBoxPrim2(box, &p2)) 				{ 
 //		printf("prim2 recoit : "); print(lsig); printf("\n");
-		assert(lsig.size()==2); 
-		return makeList( p2(lsig[0],lsig[1]) );  
+		faustassert(lsig.size()==2);
+        if (p2 == &sigEnable) {
+            if (gGlobal->gEnableFlag) {
+                // special case for sigEnable that requires a transformation
+                // enable(X,Y) -> sigEnable(X*Y, Y>0)
+                return makeList(sigEnable( sigMul(lsig[0],lsig[1]), sigGT(lsig[1],sigReal(0.0))));
+            } else {
+                // We gEnableFlag is false we replace enable by a simple multiplication
+                return makeList(sigMul(lsig[0],lsig[1]));
+            }
+        } else if (p2 == &sigControl) {
+            if (gGlobal->gEnableFlag) {
+                // special case for sigEnable that requires a transformation
+                // enable(X,Y) -> sigEnable(X*Y, Y>0)
+                return makeList(sigEnable( lsig[0], lsig[1]));
+            } else {
+                // We gEnableFlag is false we replace control by identity function
+                return makeList(lsig[0]);
+            }
+        }
+        return makeList( p2(lsig[0],lsig[1]) );
 	}
 	
 	else if (isBoxPrim3(box, &p3)) 				{ 
-		assert(lsig.size()==3); 
-		return makeList( p3(lsig[0],lsig[1],lsig[2]) );  
+		faustassert(lsig.size()==3); 
+		return makeList(p3(lsig[0],lsig[1],lsig[2]));
 	}
 	
 	else if (isBoxPrim4(box, &p4)) 				{ 
-		assert(lsig.size()==4); 
-		return makeList( p4(lsig[0],lsig[1],lsig[2],lsig[3]) );  
+		faustassert(lsig.size()==4); 
+		return makeList(p4(lsig[0],lsig[1],lsig[2],lsig[3]));
 	}
 	
 	else if (isBoxPrim5(box, &p5)) 				{ 
-		assert(lsig.size()==5); 
-		return makeList( p5(lsig[0],lsig[1],lsig[2],lsig[3],lsig[4]) );  
+		faustassert(lsig.size()==5); 
+		return makeList(p5(lsig[0],lsig[1],lsig[2],lsig[3],lsig[4]));
 	}
 	
 	else if (isBoxFFun(box, ff)) 				{ 
 		//cerr << "propagate en boxFFun of arity " << ffarity(ff) << endl;
-		assert(int(lsig.size())==ffarity(ff)); 
+		faustassert(int(lsig.size())==ffarity(ff)); 
 		return makeList(sigFFun(ff, listConvert(lsig)));  
 	}
 	
 	// User Interface Widgets
 	
 	else if (isBoxButton(box, label)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigButton(normalizePath(cons(label, path)))); 
 	}
 	
 	else if (isBoxCheckbox(box, label)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigCheckbox(normalizePath(cons(label, path)))); 
 	}
 	
 	else if (isBoxVSlider(box, label, cur, min, max, step)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigVSlider(normalizePath(cons(label, path)), cur, min, max, step)); 
 	}
 	
 	else if (isBoxHSlider(box, label, cur, min, max, step)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigHSlider(normalizePath(cons(label, path)), cur, min, max, step)); 
 	}
 
 	else if (isBoxNumEntry(box, label, cur, min, max, step)) 	{ 
-		assert(lsig.size()==0); 
+		faustassert(lsig.size()==0); 
 		return makeList(sigNumEntry(normalizePath(cons(label, path)), cur, min, max, step)); 
 	}
 	
 	else if (isBoxVBargraph(box, label, min, max)) 	{ 
-		assert(lsig.size()==1); 
+		faustassert(lsig.size()==1); 
 		return makeList(sigVBargraph(normalizePath(cons(label, path)), min, max, lsig[0])); 
 	}
 	
 	else if (isBoxHBargraph(box, label, min, max)) 	{ 
-		assert(lsig.size()==1); 
+		faustassert(lsig.size()==1); 
 		return makeList(sigHBargraph(normalizePath(cons(label, path)), min, max, lsig[0])); 
+	}
+	
+	else if (isBoxSoundfile(box, label, chan)) 	{ 
+		faustassert(lsig.size()==1);
+        Tree fullpath = normalizePath(cons(label, path));
+        Tree soundfile = sigSoundfile(fullpath);
+        int c = tree2int(chan);
+        siglist lsig2(c+3);
+        lsig2[0] = sigSoundfileLength(soundfile);
+        lsig2[1] = sigSoundfileRate(soundfile);
+        lsig2[2] = sigSoundfileChannels(soundfile);
+
+		// compute bound limited read index : int(max(0, min(ridx,length-1)))
+		Tree ridx = sigIntCast(tree(gGlobal->gMaxPrim->symbol(), sigInt(0), tree(gGlobal->gMinPrim->symbol(), lsig[0], sigAdd(lsig2[0],sigInt(-1)))));
+		for (int i = 0; i<c; i++) {
+			lsig2[i+3] = sigSoundfileBuffer(soundfile, sigInt(i), ridx);
+		}
+		return lsig2; 
 	}
 	
 	// User Interface Groups
@@ -437,7 +458,7 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 		getBoxType(t1, &in1, &out1);
 		getBoxType(t2, &in2, &out2);
 
-        assert(out1==in2);
+        faustassert(out1==in2);
 
 		if (out1 == in2) {
 			return propagate(slotenv, path, t2, propagate(slotenv, path,t1,lsig));
@@ -445,7 +466,7 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 			siglist lr = propagate(slotenv, path, t1,lsig);
 			return listConcat(propagate(slotenv, path, t2, listRange(lr, 0, in2)), listRange(lr, in2, out1));
 		} else {
-			return propagate(slotenv, path, t2, listConcat( propagate(slotenv, path, t1, listRange(lsig,0,in1)), listRange(lsig,in1,in1+in2-out1) ) );
+			return propagate(slotenv, path, t2, listConcat( propagate(slotenv, path, t1, listRange(lsig,0,in1)), listRange(lsig,in1,in1+in2-out1)));
 		}
 	}
 	
@@ -454,8 +475,8 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 		getBoxType(t1, &in1, &out1);
 		getBoxType(t2, &in2, &out2);
 			
-		return listConcat(	propagate(slotenv, path, t1, listRange(lsig, 0,  in1)), 
-							propagate(slotenv, path, t2, listRange(lsig, in1, in1+in2)) );
+		return listConcat(propagate(slotenv, path, t1, listRange(lsig, 0,  in1)),
+                          propagate(slotenv, path, t2, listRange(lsig, in1, in1+in2)));
 	}
 	
 	else if (isBoxSplit(box, t1, t2)) 	{ 
@@ -489,13 +510,20 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
         siglist l0 = makeMemSigProjList(ref(1), in2);
         siglist l1 = propagate(slotenv2, path, t2, l0);
         siglist l2 = propagate(slotenv2, path, t1, listConcat(l1,listLift(lsig)));
-		siglist l3 = (gFTZMode > 0) ? wrapWithFTZ(l2) : l2;
+		siglist l3 = (gGlobal->gFTZMode > 0) ? wrapWithFTZ(l2) : l2;
         Tree g = rec(listConvert(l3));
         return makeSigProjList(g, out1);
-    }
+    } 
 
-	cout << "ERROR in file " << __FILE__ << ':' << __LINE__ << ", unrecognised box expression : " << boxpp(box) << endl;
-	exit(1);
+    else if (isBoxEnvironment(box)) 	{
+		faustassert(lsig.size()==0); 
+		return siglist(); 
+    } 
+
+    stringstream error;
+    error << "ERROR in file " << __FILE__ << ':' << __LINE__ << ", unrecognised box expression : " << boxpp(box) << endl;
+    throw faustexception(error.str());
+
 	return siglist();
 }
 
@@ -509,6 +537,6 @@ siglist realPropagate (Tree slotenv, Tree path, Tree box, const siglist&  lsig)
 
 Tree boxPropagateSig (Tree path, Tree box, const siglist& lsig)
 {
-	return listConvert(propagate(nil, path, box, lsig));
+	return listConvert(propagate(gGlobal->nil, path, box, lsig));
 }
 

@@ -18,14 +18,19 @@
 
 var faust = faust || {};
 
+Module.lengthBytesUTF8 = function(str) 
+{
+	var len=0;for(var i=0;i<str.length;++i){var u=str.charCodeAt(i);if(u>=55296&&u<=57343)u=65536+((u&1023)<<10)|str.charCodeAt(++i)&1023;if(u<=127){++len}else if(u<=2047){len+=2}else if(u<=65535){len+=3}else if(u<=2097151){len+=4}else if(u<=67108863){len+=5}else{len+=6}}return len;
+}
+
 var DSP_constructor = Module.cwrap('DSP_constructor', 'number', []);
 var DSP_destructor = Module.cwrap('DSP_destructor', null, ['number']);
 var DSP_getSampleRate = Module.cwrap('DSP_getSampleRate', 'number', ['number']);
-var DSP_init = Module.cwrap('DSP_init', 'number', ['number','number']);
-var DSP_instanceInit = Module.cwrap('DSP_instanceInit', 'number', ['number','number']);
-var DSP_instanceConstants = Module.cwrap('DSP_instanceConstants', 'number', ['number','number']);
-var DSP_instanceResetUserInterface = Module.cwrap('DSP_instanceResetUserInterface', 'number', ['number']);
-var DSP_instanceClear = Module.cwrap('DSP_instanceClear', 'number', ['number']);
+var DSP_init = Module.cwrap('DSP_init', null, ['number','number']);
+var DSP_instanceInit = Module.cwrap('DSP_instanceInit', null, ['number','number']);
+var DSP_instanceConstants = Module.cwrap('DSP_instanceConstants', null, ['number','number']);
+var DSP_instanceResetUserInterface = Module.cwrap('DSP_instanceResetUserInterface', null, ['number']);
+var DSP_instanceClear = Module.cwrap('DSP_instanceClear', null, ['number']);
 var DSP_compute = Module.cwrap('DSP_compute', null, ['number', 'number', 'number', 'number']);
 var DSP_getNumInputs = Module.cwrap('DSP_getNumInputs', 'number', ['number']);
 var DSP_getNumOutputs = Module.cwrap('DSP_getNumOutputs', 'number', ['number']);
@@ -64,7 +69,7 @@ faust.DSP = function (context, buffer_size) {
         if (ouputs_items.length > 0 && handler && ouputs_timer-- === 0) {
             ouputs_timer = 5;
             for (var i = 0; i < ouputs_items.length; i++) {
-                Module.writeStringToMemory(ouputs_items[i], path_ptr);
+                Module.stringToUTF8(ouputs_items[i], path_ptr, Module.lengthBytesUTF8(ouputs_items[i]) + 1);
                 handler(ouputs_items[i], DSP_getParamValue(ptr, path_ptr));
             }
         }
@@ -94,12 +99,19 @@ faust.DSP = function (context, buffer_size) {
     
     function parse_item (item) 
     {
-        if (item.type === "vgroup" || item.type === "hgroup" || item.type === "tgroup") {
+        if (item.type === "vgroup"
+            || item.type === "hgroup"
+            || item.type === "tgroup") {
             parse_items(item.items);
-        } else if (item.type === "hbargraph" || item.type === "vbargraph") {
+        } else if (item.type === "hbargraph"
+                   || item.type === "vbargraph") {
             // Keep bargraph adresses
             ouputs_items.push(item.address);
-        } else if (item.type === "vslider" || item.type === "hslider" || item.type === "button" || item.type === "checkbox" || item.type === "nentry") {
+        } else if (item.type === "vslider"
+                   || item.type === "hslider"
+                   || item.type === "button"
+                   || item.type === "checkbox"
+                   || item.type === "nentry") {
             // Keep inputs adresses
             inputs_items.push(item.address);
         }
@@ -160,7 +172,6 @@ faust.DSP = function (context, buffer_size) {
         }
         
         if (numOut > 0) {
-        
             outs = Module._malloc(ptr_size * numOut); 
             for (i = 0; i < numOut; i++) { 
                 HEAP32[(outs >> 2) + i] = Module._malloc(buffer_size * sample_size);
@@ -279,13 +290,13 @@ faust.DSP = function (context, buffer_size) {
         
         setParamValue : function (path, val) 
         {
-            Module.writeStringToMemory(path, path_ptr);
+            Module.stringToUTF8(path, path_ptr, Module.lengthBytesUTF8(path) + 1);
             DSP_setParamValue(ptr, path_ptr, val);
         },
         
         getParamValue : function (path) 
         {
-            Module.writeStringToMemory(path, path_ptr);
+            Module.stringToUTF8(path, path_ptr, Module.lengthBytesUTF8(path) + 1);
             return DSP_getParamValue(ptr, path_ptr);
         },
          

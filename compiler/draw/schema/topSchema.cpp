@@ -20,10 +20,11 @@
  ************************************************************************/
 
 #include <stdlib.h>
-#include "topSchema.h"
 #include <iostream>
-#include <assert.h>
 #include <cstdlib>
+
+#include "exception.hh"
+#include "topSchema.h"
 
 using namespace std;
 
@@ -34,7 +35,6 @@ schema* makeTopSchema (schema* s, double margin, const string& text, const strin
 {
 	return new topSchema (makeDecorateSchema(s, margin/2, text), margin/2, "", link);
 }
-
 
 /**
  * A topSchema is a schema surrounded by a dashed rectangle with a
@@ -48,9 +48,7 @@ topSchema::topSchema( schema* s, double margin, const string& text, const string
 	 	fMargin(margin),
 	 	fText(text),
 	 	fLink(link)
-{
-}
-
+{}
 
 /**
  * Define the graphic position of the schema. Computes the graphic
@@ -70,9 +68,9 @@ void topSchema::place(double ox, double oy, int orientation)
  */
 point topSchema::inputPoint(unsigned int i) const
 {
-	assert (placed());
-	assert (i < inputs());
-	exit(1);
+	faustassert(placed());
+	faustassert(i < inputs());
+    throw faustexception("ERROR : topSchema::inputPoint\n");
 }
 
 /**
@@ -80,9 +78,9 @@ point topSchema::inputPoint(unsigned int i) const
  */
 point topSchema::outputPoint(unsigned int i) const
 {
-	assert (placed());
-	assert (i < outputs());
-	exit(1);
+	faustassert(placed());
+	faustassert(i < outputs());
+    throw faustexception("ERROR : topSchema::outputPoint\n");
 }
 
 /**
@@ -91,7 +89,7 @@ point topSchema::outputPoint(unsigned int i) const
  */
 void topSchema::draw(device& dev)
 {
-    assert(placed());
+    faustassert(placed());
 
     // draw a background white rectangle
     dev.rect(x(), y(), width()-1, height()-1, "#ffffff", fLink.c_str());
@@ -114,7 +112,7 @@ void topSchema::draw(device& dev)
  */
 void topSchema::collectTraits(collector& c)
 {
-    assert(placed());
+    faustassert(placed());
     fSchema->collectTraits(c);
 
     // draw arrows at output points of schema
@@ -128,6 +126,4 @@ void topSchema::collectTraits(collector& c)
         point p = fSchema->outputPoint(i);
         c.addInput(p);;
     }
-
-
 }

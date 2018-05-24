@@ -150,14 +150,21 @@ const char* HTTPDServer::getMIMEType (const string& page)
 int HTTPDServer::page (struct MHD_Connection *connection, const char * page)
 {
 	int ret = 0;
-	char * root =  getenv("FAUSTDocumentRoot");
-	string file = root ? root : ".";
+//	char * root =  getenv("FAUSTDocumentRoot");
+	string file = ".";
 	file += page;
 	const char* type = getMIMEType (file);
 
-	int fd = open (file.c_str(), O_RDONLY);
+	int fd;
+
+#if defined(_WIN32) && !defined(__MINGW32__)
+	int fhd;
+	fd = _sopen_s(&fhd, file.c_str(), _O_RDONLY, _SH_DENYNO, _S_IREAD);
+#else
+	fd = open (file.c_str(), O_RDONLY);
+#endif
 	if (fd != -1) {
-		int length = lseek(fd, 0, SEEK_END);
+		int length = lseek(fd, (long)0, SEEK_END);
 		lseek(fd, 0, SEEK_SET);
 		
 		struct MHD_Response *response = MHD_create_response_from_fd (length, fd);
@@ -177,22 +184,24 @@ int HTTPDServer::page (struct MHD_Connection *connection, const char * page)
 }
 
 //--------------------------------------------------------------------------
-int HTTPDServer::send (struct MHD_Connection *connection, std::vector<Message*> msgs)
+int HTTPDServer::send(struct MHD_Connection *connection, std::vector<Message*> msgs)
 {
-	stringstream page;
-	string mime;
-	for (unsigned int i=0; i<msgs.size(); i++) {
-		string currentmime = msgs[i]->mimetype();
-		if (mime.size() && (currentmime != mime)) {					// check for mime type change
-			send (connection, page.str().c_str(), mime.c_str());	// send the current mime data
-			page.str("");											// and clear the stream
-		}
-		mime = currentmime;
-		msgs[i]->print( page);
-		page << endl;
-		delete msgs[i];
-	}
-	return send (connection, page.str().c_str(), mime.c_str());
+    stringstream page;
+    string mime;
+    for (unsigned int i=0; i<msgs.size(); i++) {
+        string currentmime = msgs[i]->mimetype();
+        if (mime.size() && (currentmime != mime)) {         // check for mime type change
+            string res = page.str();
+            send(connection, res.c_str(), mime.c_str());    // send the current mime data
+            page.str("");                                   // and clear the stream
+        }
+        mime = currentmime;
+        msgs[i]->print( page);
+        page << endl;
+        delete msgs[i];
+    }
+    string res = page.str();
+    return send(connection, res.c_str(), mime.c_str());
 }
 
 //--------------------------------------------------------------------------

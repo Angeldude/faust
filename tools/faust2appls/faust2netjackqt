@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash -e
 
 #####################################################################
 #                                                                   #
@@ -26,7 +26,6 @@ QMAKE=$(which qmake-qt4 || echo qmake)
 # if -omp : -openmp or -fopenmp -> OPENMP
 # existing *.dsp files          -> FILES
 #
-
 
 # PHASE 1 : Look for -icc option to force use of intel icc (actually icpc)
 # without having to configure CXX and CXXFLAGS

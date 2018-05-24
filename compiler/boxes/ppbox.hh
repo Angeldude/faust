@@ -19,8 +19,6 @@
  ************************************************************************
  ************************************************************************/
  
- 
- 
 #ifndef _PPBOX_H
 #define _PPBOX_H
 
@@ -37,12 +35,12 @@
 #include <iostream>
 #include <sstream>
 #include "boxes.hh"
+#include "garbageable.hh"
 
 using namespace std;
 
 //void 		fppbox (FILE* fout, Tree box, int priority=0);
 //inline void	ppbox  (Tree box, int priority=0) 					{ fppbox(stdout, box, priority); }
-
 
 const char * prim0name(CTree *(*ptr) ());
 const char * prim1name(CTree *(*ptr) (CTree *));
@@ -51,11 +49,10 @@ const char * prim3name(CTree *(*ptr) (CTree *, CTree *, CTree *));
 const char * prim4name(CTree *(*ptr) (CTree *, CTree *, CTree *, CTree *));
 const char * prim5name(CTree *(*ptr) (CTree *, CTree *, CTree *, CTree *, CTree *));
 
-
 // box pretty printer.
 // usage : out << boxpp(aBoxExp);
 
-class boxpp
+class boxpp : public virtual Garbageable
 {
     protected:
         Tree box;
@@ -72,7 +69,9 @@ inline ostream& operator << (ostream& file, const boxpp& bpp) { return bpp.print
 // box pretty printer.
 // usage : out << boxpp(aBoxExp);
 
-class envpp
+// Used on the stack so not Garbageable 
+
+class envpp : public virtual Garbageable
 {
 	Tree 	fEnv;
 public:
@@ -81,6 +80,5 @@ public:
 };
 
 inline ostream& operator << (ostream& file, const envpp& epp) { return epp.print(file); }
-
 
 #endif

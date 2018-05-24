@@ -28,6 +28,7 @@
 #include <assert.h>
 
 #include "faust/dsp/dsp.h"
+#include "faust/gui/UI.h"
 
 // Combine two DSP in sequence
 
@@ -195,7 +196,7 @@ class dsp_parallelizer : public dsp {
             fDSP1->instanceResetUserInterface();
             fDSP2->instanceResetUserInterface();
         }
-    
+
         virtual void instanceClear()
         {
             fDSP1->instanceClear();

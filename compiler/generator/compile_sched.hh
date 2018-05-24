@@ -19,14 +19,11 @@
  ************************************************************************
  ************************************************************************/
  
- 
- 
 #ifndef _COMPILE_SCHED_
 #define _COMPILE_SCHED_
 
 #include "compile_vect.hh"
 #include "loop.hh"
-
 
 ////////////////////////////////////////////////////////////////////////
 /**
@@ -37,23 +34,21 @@
 class SchedulerCompiler : public VectorCompiler
 {
 
-public:
+    public:
 
-    SchedulerCompiler (const string& name, const string& super, int numInputs, int numOutputs)
-        : VectorCompiler(name,super,numInputs,numOutputs)
+        SchedulerCompiler(const string& name, const string& super, int numInputs, int numOutputs)
+            : VectorCompiler(name,super,numInputs,numOutputs)
+            {}
+        
+        SchedulerCompiler (Klass* k) : VectorCompiler(k)
         {}
-    
-    SchedulerCompiler (Klass* k) : VectorCompiler(k)
-    {}
-    virtual void compileMultiSignal (Tree L);
-    
-protected:
-    
-    virtual void        vectorLoop (const string& tname, const string& dlname, const string& cexp);
-    virtual void        dlineLoop ( const string& tname, const string& dlname, int delay, const string& cexp);
-
+        virtual void compileMultiSignal (Tree L);
+        
+    protected:
+        
+        virtual void vectorLoop(const string& tname, const string& dlname, const string& cexp, const string& ccs);
+        virtual void dlineLoop(const string& tname, const string& dlname, int delay, const string& cexp, const string& ccs);
 
 };
-
 
 #endif

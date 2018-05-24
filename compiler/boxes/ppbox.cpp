@@ -19,17 +19,15 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include "list.hh"
 #include "boxes.hh"
 #include "ppbox.hh"
 #include "signals.hh"
 #include "prim2.hh"
 #include "xtended.hh"
+#include "exception.hh"
+#include "global.hh"
 #include "Text.hh"
-
-extern int gFloatSize;
 
 const char * prim0name(CTree *(*ptr) ())
 {
@@ -69,6 +67,7 @@ const char * prim2name(CTree *(*ptr) (CTree *, CTree *))
     if (ptr == sigFixDelay) return "@";
     if (ptr == sigPrefix) 	return "prefix";
     if (ptr == sigAttach) 	return "attach";
+    if (ptr == sigEnable) 	return "enable";
 
     return "prim2???";
 }
@@ -148,7 +147,7 @@ ostream& boxpp::print (ostream& fout) const
 
     Tree	t1, t2, t3, ff, label, cur, min, max, step, type, name, file, arg,
             body, fun, args, abstr, genv, vis, lenv, ldef, slot,
-            ident, rules;
+            ident, rules, chan;
 
     const char* str;
 
@@ -178,7 +177,7 @@ ostream& boxpp::print (ostream& fout) const
         fout << "ffunction(" << type2str(ffrestype(ff));
         Tree namelist = nth(ffsignature(ff),1);
         char sep = ' ';
-        for (int i = 0; i < gFloatSize; i++) {
+        for (int i = 0; i < gGlobal->gFloatSize; i++) {
             fout << sep << tree2str(nth(namelist,i));
             sep = '|';
         }
@@ -257,7 +256,10 @@ ostream& boxpp::print (ostream& fout) const
              << boxpp(min) << ", "
              << boxpp(max) << ", "
              << boxpp(step)<< ')';
+    } else if (isBoxSoundfile(box, label, chan)) {
+        fout << "soundfile(" << tree2quotedstr(label) << ", " << boxpp(chan) << ')';
     }
+
     else if (isNil(box)) {
         fout << "()" ;
     }
@@ -365,10 +367,11 @@ ostream& boxpp::print (ostream& fout) const
     //}
    
     // None of the previous tests succeded, then it is not a valid box
-    else {
-        cerr << "Error in box::print() : " << *box << " is not a valid box" << endl;
-        exit(1);
-    }
+	else {
+        stringstream error;
+        error << "ERROR in box::print() : " << *box << " is not a valid box" << endl;
+        throw faustexception(error.str());
+	}
 
     return fout;
 }

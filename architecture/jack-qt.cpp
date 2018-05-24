@@ -39,7 +39,6 @@
 #include <list>
 
 #include "faust/dsp/timed-dsp.h"
-#include "faust/gui/PathBuilder.h"
 #include "faust/gui/FUI.h"
 #include "faust/gui/JSONUI.h"
 #include "faust/misc.h"
@@ -52,6 +51,10 @@
 
 #ifdef HTTPCTRL
 #include "faust/gui/httpdUI.h"
+#endif
+
+#if SOUNDFILE
+#include "faust/gui/SoundUI.h"
 #endif
 
 // Always include this file, otherwise -poly only mode does not compile....
@@ -113,8 +116,13 @@ int main(int argc, char *argv[])
     MidiMeta::analyse(tmp_dsp, midi_sync, nvoices);
     delete tmp_dsp;
 
-    snprintf(name, 255, "%s", basename(argv[0]));
-    snprintf(rcfilename, 255, "%s/.%src", home, name);
+    snprintf(name, 256, "%s", basename(argv[0]));
+    snprintf(rcfilename, 256, "%s/.%src", home, name);
+    
+    if (isopt(argv, "-h")) {
+        std::cout << "prog [--frequency <val>] [--buffer <val>] [--nvoices <val>] [--group <0/1>]\n";
+        exit(1);
+    }
    
 #ifdef POLY2
     nvoices = lopt(argv, "--nvoices", nvoices);
@@ -160,7 +168,6 @@ int main(int argc, char *argv[])
         DSP = new mydsp();
 #endif
     }
-    
 #endif
     
     if (DSP == 0) {
@@ -172,9 +179,13 @@ int main(int argc, char *argv[])
 
     QTGUI interface;
     FUI finterface;
+#ifdef SOUNDFILE
+    // Use bundle path
+    SoundUI soundinterface(SoundUI::getBinaryPath("/Contents/Resources/"));
+    DSP->buildUserInterface(&soundinterface);
+#endif
     DSP->buildUserInterface(&interface);
     DSP->buildUserInterface(&finterface);
-
 #ifdef HTTPCTRL
     httpdUI httpdinterface(name, DSP->getNumInputs(), DSP->getNumOutputs(), argc, argv);
     DSP->buildUserInterface(&httpdinterface);
@@ -187,15 +198,17 @@ int main(int argc, char *argv[])
     std::cout << "OSC is on" << std::endl;
 #endif
 
-    jackaudio_midi audio;
+    
 #ifdef MIDICTRL
-    audio.init(name, DSP, true);
+    jackaudio_midi audio;
+    audio.init(name, DSP);
 #else
+    jackaudio audio;
     audio.init(name, DSP);
 #endif
 
 #ifdef MIDICTRL
-    int rtmidi = lopt(argv, "--rtmidi", 0);
+    bool rtmidi = isopt(argv, "--rtmidi");
 
     MidiUI* midiinterface;
     if (rtmidi) {
@@ -213,8 +226,7 @@ int main(int argc, char *argv[])
     std::cout << "MIDI is on" << std::endl;
 #endif
 
-    finterface.recallState(rcfilename);	
-     
+    finterface.recallState(rcfilename);
     audio.start();
 
     printf("ins %d\n", audio.getNumInputs());
@@ -247,7 +259,7 @@ int main(int argc, char *argv[])
 
     audio.stop();
     finterface.saveState(rcfilename);
-     
+    
     return 0;
 }
 

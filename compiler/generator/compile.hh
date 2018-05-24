@@ -19,11 +19,8 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #ifndef _COMPILE_
 #define _COMPILE_
-
 
 #include "signals.hh"
 #include "klass.hh"
@@ -47,10 +44,10 @@
 
 #define kMaxHeight 1024
 
-
 class Compiler
 {
 protected:
+    
 	Klass*			fClass;
 	bool			fNeedToDeleteClass;
 	Tree			fUIRoot;
@@ -58,6 +55,7 @@ protected:
     JSONUI          fJSON;
 
 public:
+    
 	Compiler (const string& name, const string& super, int numInputs, int numOutputs, bool vec);
 	Compiler (Klass* k);
 
@@ -68,34 +66,33 @@ public:
 
 	Klass*				getClass() { return (Klass*)fClass; }
 
-	void				setDescription(Description* descr)	{ fDescription= descr; }
+	void				setDescription(Description* descr)	{ fDescription = descr; }
 	Description*		getDescription()					{ return fDescription; }
 
 protected:
-  virtual Tree 		prepare (Tree L0) = 0;
-  virtual Tree 		prepare2 (Tree L0) = 0;
+    
+  virtual Tree 		prepare(Tree L0) = 0;
+  virtual Tree 		prepare2(Tree L0) = 0;
 
-// gestion des includes et librairies
-	void 		addIncludeFile (const string& str) 	{ fClass->addIncludeFile(str); 	}
-	void 		addLibrary (const string& str) 		{ fClass->addLibrary(str); 		}
+    // gestion des includes et librairies
+	void 		addIncludeFile(const string& str) 	{ fClass->addIncludeFile(str); 	}
+	void 		addLibrary(const string& str) 		{ fClass->addLibrary(str); 		}
 
-// gestion de la description arborescente de l'IU
+    // gestion de la description arborescente de l'IU
     void 		addUIWidget(Tree path, Tree widget);
     void 		generateWidgetCode(Tree fulllabel, Tree varname, Tree sig);
     void        generateMetaData();
     void 		generateUserInterfaceTree(Tree t, bool root = false);
     void 		generateUserInterfaceElements(Tree elements);
     Tree 		prepareUserInterfaceTree(Tree t);
-
 	void        generateMacroInterfaceTree(const string& pathname, Tree t);
     void        generateMacroInterfaceElements(const string& pathname, Tree elements);
     void        generateWidgetMacro(const string& pathname, Tree fulllabel, Tree varname, Tree sig);
 
-
 };
+
 #define generateEquivRecGroup generateRecGroup
 
-
-void compileSignals (const string& name, const string& super, int numInputs, int numOutputs, Tree lsig);
+void compileSignals(const string& name, const string& super, int numInputs, int numOutputs, Tree lsig);
 
 #endif

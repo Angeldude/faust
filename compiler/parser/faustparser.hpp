@@ -30,8 +30,8 @@
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
-#ifndef YY_YY_PARSER_FAUSTPARSER_HPP_INCLUDED
-# define YY_YY_PARSER_FAUSTPARSER_HPP_INCLUDED
+#ifndef YY_YY_FAUSTPARSER_HPP_INCLUDED
+# define YY_YY_FAUSTPARSER_HPP_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -90,83 +90,86 @@ extern int yydebug;
     TGROUP = 300,
     HBARGRAPH = 301,
     VBARGRAPH = 302,
-    ATTACH = 303,
-    ACOS = 304,
-    ASIN = 305,
-    ATAN = 306,
-    ATAN2 = 307,
-    COS = 308,
-    SIN = 309,
-    TAN = 310,
-    EXP = 311,
-    LOG = 312,
-    LOG10 = 313,
-    POWFUN = 314,
-    SQRT = 315,
-    ABS = 316,
-    MIN = 317,
-    MAX = 318,
-    FMOD = 319,
-    REMAINDER = 320,
-    FLOOR = 321,
-    CEIL = 322,
-    RINT = 323,
-    RDTBL = 324,
-    RWTBL = 325,
-    SELECT2 = 326,
-    SELECT3 = 327,
-    INT = 328,
-    FLOAT = 329,
-    LAMBDA = 330,
-    WIRE = 331,
-    CUT = 332,
-    ENDDEF = 333,
-    VIRG = 334,
-    LPAR = 335,
-    RPAR = 336,
-    LBRAQ = 337,
-    RBRAQ = 338,
-    LCROC = 339,
-    RCROC = 340,
-    DEF = 341,
-    IMPORT = 342,
-    COMPONENT = 343,
-    LIBRARY = 344,
-    ENVIRONMENT = 345,
-    WAVEFORM = 346,
-    IPAR = 347,
-    ISEQ = 348,
-    ISUM = 349,
-    IPROD = 350,
-    INPUTS = 351,
-    OUTPUTS = 352,
-    STRING = 353,
-    FSTRING = 354,
-    IDENT = 355,
-    EXTRA = 356,
-    DECLARE = 357,
-    CASE = 358,
-    ARROW = 359,
-    BDOC = 360,
-    EDOC = 361,
-    BEQN = 362,
-    EEQN = 363,
-    BDGM = 364,
-    EDGM = 365,
-    BLST = 366,
-    ELST = 367,
-    BMETADATA = 368,
-    EMETADATA = 369,
-    DOCCHAR = 370,
-    NOTICE = 371,
-    LISTING = 372,
-    LSTTRUE = 373,
-    LSTFALSE = 374,
-    LSTDEPENDENCIES = 375,
-    LSTMDOCTAGS = 376,
-    LSTDISTRIBUTED = 377,
-    LSTEQ = 378,
-    LSTQ = 379
+    SOUNDFILE = 303,
+    ATTACH = 304,
+    ACOS = 305,
+    ASIN = 306,
+    ATAN = 307,
+    ATAN2 = 308,
+    COS = 309,
+    SIN = 310,
+    TAN = 311,
+    EXP = 312,
+    LOG = 313,
+    LOG10 = 314,
+    POWFUN = 315,
+    SQRT = 316,
+    ABS = 317,
+    MIN = 318,
+    MAX = 319,
+    FMOD = 320,
+    REMAINDER = 321,
+    FLOOR = 322,
+    CEIL = 323,
+    RINT = 324,
+    RDTBL = 325,
+    RWTBL = 326,
+    SELECT2 = 327,
+    SELECT3 = 328,
+    INT = 329,
+    FLOAT = 330,
+    LAMBDA = 331,
+    WIRE = 332,
+    CUT = 333,
+    ENDDEF = 334,
+    VIRG = 335,
+    LPAR = 336,
+    RPAR = 337,
+    LBRAQ = 338,
+    RBRAQ = 339,
+    LCROC = 340,
+    RCROC = 341,
+    DEF = 342,
+    IMPORT = 343,
+    COMPONENT = 344,
+    LIBRARY = 345,
+    ENVIRONMENT = 346,
+    WAVEFORM = 347,
+    ENABLE = 348,
+    CONTROL = 349,
+    IPAR = 350,
+    ISEQ = 351,
+    ISUM = 352,
+    IPROD = 353,
+    INPUTS = 354,
+    OUTPUTS = 355,
+    STRING = 356,
+    FSTRING = 357,
+    IDENT = 358,
+    EXTRA = 359,
+    DECLARE = 360,
+    CASE = 361,
+    ARROW = 362,
+    BDOC = 363,
+    EDOC = 364,
+    BEQN = 365,
+    EEQN = 366,
+    BDGM = 367,
+    EDGM = 368,
+    BLST = 369,
+    ELST = 370,
+    BMETADATA = 371,
+    EMETADATA = 372,
+    DOCCHAR = 373,
+    NOTICE = 374,
+    LISTING = 375,
+    LSTTRUE = 376,
+    LSTFALSE = 377,
+    LSTDEPENDENCIES = 378,
+    LSTMDOCTAGS = 379,
+    LSTDISTRIBUTED = 380,
+    LSTEQ = 381,
+    LSTQ = 382
   };
 #endif
 
@@ -175,14 +178,14 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 78 "parser/faustparser.y" /* yacc.c:1909  */
+#line 71 "faustparser.y" /* yacc.c:1909  */
 
 	CTree* 	exp;
 	char* str;
 	string* cppstr;
 	bool b;
 
-#line 186 "parser/faustparser.hpp" /* yacc.c:1909  */
+#line 189 "faustparser.hpp" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -195,4 +198,4 @@ extern YYSTYPE yylval;
 
 int yyparse (void);
 
-#endif /* !YY_YY_PARSER_FAUSTPARSER_HPP_INCLUDED  */
+#endif /* !YY_YY_FAUSTPARSER_HPP_INCLUDED  */

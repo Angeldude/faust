@@ -42,7 +42,6 @@ class PrintUI : public PathBuilder, public UI
     public:
 
         PrintUI() {}
-
         virtual ~PrintUI() {}
 
         // -- widget's layouts
@@ -100,6 +99,13 @@ class PrintUI : public PathBuilder, public UI
         virtual void addVerticalBargraph(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT min, FAUSTFLOAT max)
         {
             std::cout << "addVerticalBargraph label : " << buildPath(label) << " min : " << min << " max : " << max << std::endl;
+        }
+    
+        // -- soundfiles
+    
+        virtual void addSoundfile(const char* label, const char* filename,  Soundfile** sf_zone)
+        {
+            std::cout << "addSoundfile label : " << buildPath(label) << " filename :" << filename << std::endl;
         }
 
         // -- metadata declarations

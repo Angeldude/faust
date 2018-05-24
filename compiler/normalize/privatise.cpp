@@ -19,8 +19,6 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include "sigtype.hh"
 #include "compatibility.hh"
 #include <stdio.h>
@@ -28,7 +26,8 @@
 #include "sigprint.hh"
 #include "sigtyperules.hh"
 #include "privatise.hh"
-
+#include "exception.hh"
+#include "global.hh"
 
 /*****************************************************************************
 						 privatise : compile a list of signals
@@ -41,26 +40,23 @@ static Tree privatisation (const Tree& k, const Tree& t);
 static Tree computePrivatisation (const Tree& k, const Tree& t);
 static Tree labelize(const Tree& label, const Tree& exp);
 
-
 Tree privatise(const Tree& t)
 {
-
 	return privatisation(makePrivatisationKey(t), t);
 }
-
 
 // -- implementation -----------------
 
 static Tree makePrivatisationKey(const Tree& t)
 {
-	char 	name[256];
+	char name[256];
 	snprintf(name, 256, "PRIVATISE %p : ", (void *)(CTree*)t);
 	return tree(unique(name));
 }
 
 static Tree makePrivatisationLabel(const Tree& t)
 {
-	char 	name[256];
+	char name[256];
 	snprintf(name, 256, "OWNER IS %p : ", (void *)(CTree*)t);
 	return tree(unique(name));
 }
@@ -93,7 +89,7 @@ static Tree privatisation (const Tree& k, const Tree& t)
 		if (v != t) {
 			setProperty(t, k, v );
 		} else {
-			setProperty(t, k, nil);
+			setProperty(t, k, gGlobal->nil);
 		}
 		return v;
 	}
@@ -123,13 +119,12 @@ static Tree computePrivatisation(const Tree& k, const Tree& exp)
 	} else if ( isSigGen(exp, content) ) {
 		/*	On ne visite pas les contenus des tables
 		*/
-		printf("erreur 1 dans computePrivatisation\n");
-		exit(1);
+	    throw faustexception("ERROR 1 in computePrivatisation");
 
 	} else if ( isRec(exp, var, body) ) {
 		/*	On ne visite pas les contenus des tables
 		*/
-		setProperty(exp, k, nil);
+		setProperty(exp, k, gGlobal->nil);
 		return rec(var, privatisation(k,body));
 
 	} else {
@@ -165,9 +160,7 @@ static Tree labelize(const Tree& newid, const Tree& exp)
 		return sigTable(newid, size, content);
 
 	} else {
-
-		printf("erreur labelize\n");
-		exit(1);
+        throw faustexception("ERROR labelize");
 	}
 
 	return exp;

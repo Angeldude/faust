@@ -62,11 +62,6 @@ static inline double midiToFreq(double note)
     return 440.0 * pow(2.0, (note-69.0)/12.0);
 }
 
-static inline unsigned int isPowerOfTwo(unsigned int n)
-{
-    return !(n & (n - 1));
-}
-
 /**
  * Allows to control zones in a grouped manner.
  */
@@ -205,7 +200,6 @@ struct dsp_voice : public MapUI, public decorator_dsp {
         setParamValue(fFreqPath, midiToFreq(pitch));
         setParamValue(fGainPath, float(velocity)/127.f);
         fNote = pitch;
-        fTrigger = true; // so that envelop is always re-initialized
     }
 
     // Normalized MIDI velocity [0..1]
@@ -214,13 +208,13 @@ struct dsp_voice : public MapUI, public decorator_dsp {
         setParamValue(fFreqPath, midiToFreq(pitch));
         setParamValue(fGainPath, velocity);
         fNote = pitch;
-        fTrigger = true; // so that envelop is always re-initialized
     }
 
     void keyOff(bool hard = false)
     {
         // No use of velocity for now...
         setParamValue(fGatePath, FAUSTFLOAT(0));
+        
         if (hard) {
             // Stop immediately
             fNote = kFreeVoice;
@@ -294,7 +288,7 @@ struct dsp_voice_group {
 
     virtual ~dsp_voice_group()
     {
-        for (int i = 0; i < fVoiceTable.size(); i++) {
+        for (size_t i = 0; i < fVoiceTable.size(); i++) {
             delete fVoiceTable[i];
         }
         delete fVoiceGroup;
@@ -315,7 +309,7 @@ struct dsp_voice_group {
         // Groups all uiItem for a given path
         fVoiceGroup = new proxy_dsp(fVoiceTable[0]);
         fVoiceGroup->buildUserInterface(&fGroups);
-        for (int i = 0; i < fVoiceTable.size(); i++) {
+        for (size_t i = 0; i < fVoiceTable.size(); i++) {
             fVoiceTable[i]->buildUserInterface(&fGroups);
         }
     }
@@ -333,9 +327,9 @@ struct dsp_voice_group {
 
             // If not grouped, also add individual voices UI
             if (!fGroupControl) {
-                for (int i = 0; i < fVoiceTable.size(); i++) {
+                for (size_t i = 0; i < fVoiceTable.size(); i++) {
                     char buffer[32];
-                    snprintf(buffer, 31, ((fVoiceTable.size() < 8) ? "Voice%d" : "V%d"), i+1);
+                    snprintf(buffer, 32, ((fVoiceTable.size() < 8) ? "Voice%ld" : "V%ld"), i+1);
                     ui_interface->openHorizontalBox(buffer);
                     fVoiceTable[i]->buildUserInterface(ui_interface);
                     ui_interface->closeBox();
@@ -351,10 +345,23 @@ struct dsp_voice_group {
 };
 
 /**
+ * Base class for Polyphonic DSP.
+ */
+class dsp_poly : public decorator_dsp, public midi {
+
+    public:
+    
+        dsp_poly(dsp* dsp):decorator_dsp(dsp)
+        {}
+    
+        virtual ~dsp_poly() {}
+};
+
+/**
  * Polyphonic DSP : group a set of DSP to be played together or triggered by MIDI.
  */
 
-class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
+class mydsp_poly : public dsp_voice_group, public dsp_poly {
 
     private:
 
@@ -381,26 +388,48 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
                 memset(mixBuffer[i], 0, count * sizeof(FAUSTFLOAT));
             }
         }
-
-        inline int getVoice(int note, bool steal = false)
+    
+        inline int getPlayingVoice(int pitch)
         {
-            for (int i = 0; i < fVoiceTable.size(); i++) {
-                if (fVoiceTable[i]->fNote == note) {
-                    if (steal) {
-                        fVoiceTable[i]->fDate = fDate++;
+            int voice_playing = kNoVoice;
+            int oldest_date_playing = INT_MAX;
+            
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
+                if (fVoiceTable[i]->fNote == pitch) {
+                    // Keeps oldest playing voice
+                    if (fVoiceTable[i]->fDate < oldest_date_playing) {
+                        oldest_date_playing = fVoiceTable[i]->fDate;
+                        voice_playing = i;
                     }
-                    return i;
+                }
+            }
+            
+            return voice_playing;
+        }
+    
+        // Always returns a voice
+        inline int getFreeVoice()
+        {
+            int voice = kNoVoice;
+            
+            // Looks for the first available voice
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
+                if (fVoiceTable[i]->fNote == kFreeVoice) {
+                    voice = i;
+                    goto result;
                 }
             }
 
-            if (steal) {
+            {
+                // Otherwise steal one
                 int voice_release = kNoVoice;
                 int voice_playing = kNoVoice;
+                
                 int oldest_date_release = INT_MAX;
                 int oldest_date_playing = INT_MAX;
 
                 // Scan all voices
-                for (int i = 0; i < fVoiceTable.size(); i++) {
+                for (size_t i = 0; i < fVoiceTable.size(); i++) {
                     if (fVoiceTable[i]->fNote == kReleaseVoice) {
                         // Keeps oldest release voice
                         if (fVoiceTable[i]->fDate < oldest_date_release) {
@@ -415,26 +444,27 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
                         }
                     }
                 }
-
+            
                 // Then decide which one to steal
                 if (oldest_date_release != INT_MAX) {
                     std::cout << "Steal release voice : voice_date " << fVoiceTable[voice_release]->fDate << " cur_date = " << fDate << " voice = " << voice_release << std::endl;
-                    fVoiceTable[voice_release]->fDate = fDate++;
-                    fVoiceTable[voice_release]->fTrigger = true;
-                    return voice_release;
+                    voice = voice_release;
+                    goto result;
                 } else if (oldest_date_playing != INT_MAX) {
                     std::cout << "Steal playing voice : voice_date " << fVoiceTable[voice_playing]->fDate << " cur_date = " << fDate << " voice = " << voice_playing << std::endl;
-                    fVoiceTable[voice_playing]->fDate = fDate++;
-                    fVoiceTable[voice_playing]->fTrigger = true;
-                    return voice_playing;
+                    voice = voice_playing;
+                    goto result;
                 } else {
                     assert(false);
                     return kNoVoice;
                 }
-
-            } else {
-                return kNoVoice;
             }
+            
+        result:
+            fVoiceTable[voice]->fDate = fDate++;
+            fVoiceTable[voice]->fTrigger = true;    // So that envelop is always re-initialized
+            fVoiceTable[voice]->fNote = kActiveVoice;
+            return voice;
         }
 
         static void panic(FAUSTFLOAT val, void* arg)
@@ -454,15 +484,6 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
             }
         }
 
-        // Always returns a voice
-        int newVoiceAux()
-        {
-            int voice = getVoice(kFreeVoice, true);
-            assert(voice != kNoVoice);
-            fVoiceTable[voice]->fNote = kActiveVoice;
-            return voice;
-        }
-
     public:
     
         /**
@@ -480,7 +501,8 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
         mydsp_poly(dsp* dsp,
                    int nvoices,
                    bool control = false,
-                   bool group = true):decorator_dsp(dsp), dsp_voice_group(panic, this, control, group)
+                   bool group = true)
+        : dsp_voice_group(panic, this, control, group), dsp_poly(dsp)
         {
             fDate = 0;
 
@@ -520,7 +542,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
             fPanic = FAUSTFLOAT(0);
             
             // Init voices
-            for (int i = 0; i < fVoiceTable.size(); i++) {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
                 fVoiceTable[i]->init(samplingRate);
             }
         }
@@ -538,7 +560,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
             fVoiceGroup->instanceConstants(samplingRate);
             
             // Init voices
-            for (int i = 0; i < fVoiceTable.size(); i++) {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
                 fVoiceTable[i]->instanceConstants(samplingRate);
             }
         }
@@ -549,7 +571,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
             fVoiceGroup->instanceResetUserInterface();
             fPanic = FAUSTFLOAT(0);
             
-            for (int i = 0; i < fVoiceTable.size(); i++) {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
                 fVoiceTable[i]->instanceResetUserInterface();
             }
         }
@@ -559,14 +581,14 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
             decorator_dsp::instanceClear();
             fVoiceGroup->instanceClear();
             
-            for (int i = 0; i < fVoiceTable.size(); i++) {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
                 fVoiceTable[i]->instanceClear();
             }
         }
 
         virtual mydsp_poly* clone()
         {
-            return new mydsp_poly(fDSP->clone(), fVoiceTable.size(), fVoiceControl, fGroupControl);
+            return new mydsp_poly(fDSP->clone(), int(fVoiceTable.size()), fVoiceControl, fGroupControl);
         }
 
         void compute(int count, FAUSTFLOAT** inputs, FAUSTFLOAT** outputs)
@@ -578,7 +600,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
 
             if (fVoiceControl) {
                 // Mix all playing voices
-                for (int i = 0; i < fVoiceTable.size(); i++) {
+                for (size_t i = 0; i < fVoiceTable.size(); i++) {
                     dsp_voice* voice = fVoiceTable[i];
                     if (voice->fNote != kFreeVoice) {
                         voice->play(count, inputs, fMixBuffer);
@@ -592,7 +614,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
                 }
             } else {
                 // Mix all voices
-                for (int i = 0; i < fVoiceTable.size(); i++) {
+                for (size_t i = 0; i < fVoiceTable.size(); i++) {
                     fVoiceTable[i]->compute(count, inputs, fMixBuffer);
                     mixVoice(count, fMixBuffer, outputs);
                 }
@@ -607,7 +629,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
         // Additional polyphonic API
         MapUI* newVoice()
         {
-            return fVoiceTable[newVoiceAux()];
+            return fVoiceTable[getFreeVoice()];
         }
 
         void deleteVoice(MapUI* voice)
@@ -624,7 +646,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
         MapUI* keyOn(int channel, int pitch, int velocity)
         {
             if (checkPolyphony()) {
-                int voice = newVoiceAux();
+                int voice = getFreeVoice();
                 fVoiceTable[voice]->keyOn(pitch, velocity);
                 return fVoiceTable[voice];
             } else {
@@ -635,7 +657,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
         void keyOff(int channel, int pitch, int velocity = 127)
         {
             if (checkPolyphony()) {
-                int voice = getVoice(pitch);
+                int voice = getPlayingVoice(pitch);
                 if (voice != kNoVoice) {
                     fVoiceTable[voice]->keyOff();
                 } else {
@@ -669,7 +691,7 @@ class mydsp_poly : public decorator_dsp, public dsp_voice_group, public midi {
         // Terminate all active voices, gently or immediately (depending of 'hard' value)
         void allNotesOff(bool hard = false)
         {
-            for (int i = 0; i < fVoiceTable.size(); i++) {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
                 fVoiceTable[i]->keyOff(hard);
             }
         }

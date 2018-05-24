@@ -1,3 +1,24 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+ 
 #include "aterm.hh"
 #include "ppsig.hh"
 //static void collectMulTerms (Tree& coef, map<Tree,int>& M, Tree t, bool invflag=false);
@@ -17,13 +38,13 @@ aterm::aterm ()
  */
 aterm::aterm (Tree t)
 {
-	#ifdef TRACE
+#ifdef TRACE
 	cerr << "aterm::aterm (" << ppsig(t)<< ")" << endl;
-	#endif
+#endif
 	*this += t;
-	#ifdef TRACE
+#ifdef TRACE
     cerr << "aterm::aterm (" << ppsig(t)<< ") : -> " << *this << endl;
-	#endif
+#endif
 }
 	
 
@@ -32,8 +53,8 @@ aterm::aterm (Tree t)
  */
 static Tree simplifyingAdd(Tree t1, Tree t2)
 {
-	assert(t1!=0);
-	assert(t2!=0);
+	faustassert(t1!=0);
+	faustassert(t2!=0);
 
 	if (isNum(t1) && isNum(t2)) {
 		return addNums(t1,t2);
@@ -163,7 +184,7 @@ const aterm& aterm::operator += (Tree t)
 	int		op;
 	Tree	x,y;
 
-	assert(t!=0);
+	faustassert(t!=0);
 
 	if (isSigBinOp(t, &op, x, y) && (op == kAdd)) {
 		*this += x;
@@ -190,7 +211,7 @@ const aterm& aterm::operator -= (Tree t)
 	int		op;
 	Tree	x,y;
 
-	assert(t!=0);
+	faustassert(t!=0);
 
 	if (isSigBinOp(t, &op, x, y) && (op == kAdd)) {
 		*this -= x;
@@ -213,13 +234,13 @@ const aterm& aterm::operator -= (Tree t)
  */
 const aterm& aterm::operator += (const mterm& m)
 {
-	#ifdef TRACE
+#ifdef TRACE
     cerr << *this << " aterm::+= " << m << endl;
-	#endif
+#endif
 	Tree signature = m.signatureTree();
-	#ifdef TRACE
+#ifdef TRACE
     cerr << "signature " << *signature << endl;
-	#endif
+#endif
 	SM::const_iterator p = fSig2MTerms.find(signature);
 	if (p == fSig2MTerms.end()) {
 		// its a new mterm

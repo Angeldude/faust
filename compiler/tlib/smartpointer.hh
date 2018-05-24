@@ -19,16 +19,11 @@
  ************************************************************************
  ************************************************************************/
  
- 
- 
 #ifndef _SMARTPOINTER_H
 #define _SMARTPOINTER_H
 
-//#include <iostream>
 #include <cstdlib>
 #include <cstdio>
-
-
 
 template<class T>
 class P {
@@ -69,6 +64,5 @@ class P {
 		template<class T2> P& cast(T2* p_)	{ return operator=(dynamic_cast<T*>(p_)); }
 		template<class T2> P& cast(const P<T2>& p_) { return operator=(dynamic_cast<T*>(p_)); }
 };
-
 
 #endif

@@ -2,7 +2,7 @@
 <div id="export" style="color:white; position: absolute; width:400px; padding:2px 2px 2px 2px; background-color:7F7F7F; visibility:hidden; ">
 
 <div id="centerDiv" style="position:relative; margin-right:auto; margin-left:auto; text-align:center;">
-<input id="exportUrl" style="color:white; border:0px; text-align:center; font-size:16px; background-color:transparent; outline: 0px solid transparent; position:relative; margin-left:auto; maring-right: auto; text-align:center;" contenteditable="true" value="http://faustservice.grame.fr" onkeyup="onEnterKey()"/>
+<input id="exportUrl" style="color:white; border:0px; text-align:center; font-size:16px; background-color:transparent; outline: 0px solid transparent; position:relative; margin-left:auto; maring-right: auto; text-align:center;" contenteditable="true" value="https://faustservice.grame.fr" onkeyup="onEnterKey()"/>
 </br>
 </br>
 </br>
@@ -27,7 +27,7 @@
   </br>
   </br>
   <input id="exportButton" type="button" value="Export" onclick="getFaustSource()" style="border: 2px solid white; border-radius:8px; color:white; font-size:16px;  background-color:transparent;"/>
-	</br>
+  </br>
   </br>
   <div id="qrDiv">
   
@@ -46,11 +46,10 @@
   </path>
 </svg>
 </div>
-  </div>
 </div>
-  </br>
 </div>
-
+</br>
+</div>
 
 <div id="plusImg" style="position: absolute; z-index=4; visibility:visible;">
 <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
@@ -88,7 +87,7 @@ l0 -40 -150 0 -150 0 0 40 0 40 150 0 150 0 0 -40z"/>
 <script src="ExportLib.js"></script>
 <script src="qrcode.js"></script>
 
-<script >
+<script>
 
 function onEnterKey(e)
 {
@@ -220,10 +219,9 @@ function updateFWTargets()
 	
 		window.json = json;
 		var plats = getPlatforms(json);	
-	
 		for (var i = 0; i < plats.length; i++) {
-			var o=document.createElement('option');
-			o.text=plats[i];
+			var o = document.createElement('option');
+			o.text = plats[i];
 			document.getElementById("Platform").options.add(o);
 		}
 		

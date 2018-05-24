@@ -19,22 +19,19 @@
  ************************************************************************
  ************************************************************************/
  
-extern int gFloatSize;
-
- 
 #include "prim2.hh"
-#include "stdlib.h"
+#include "global.hh"
 
-Sym FFUN = symbol ("ForeignFunction");
+#include <stdlib.h>
 
 Tree ffunction (Tree signature, Tree incfile, Tree libfile)
 {
-	return tree(FFUN, signature, incfile, libfile);
+	return tree(gGlobal->FFUN, signature, incfile, libfile);
 }
 
 bool isffunction(Tree t)
 {
-	return t->node() == Node(FFUN); 
+	return t->node() == Node(gGlobal->FFUN); 
 }
 
 Tree ffsignature(Tree ff) 
@@ -61,7 +58,7 @@ const char* ffname(Tree t)
 {
     Tree namelist = nth(ffsignature(t),1);
     //cerr << "ffname " << tree2str(nth(namelist,gFloatSize-1)) << endl;
-    return tree2str(nth(namelist,gFloatSize-1));
+    return tree2str(nth(namelist, gGlobal->gFloatSize - 1));
 }
 
 int ffarity(Tree t)

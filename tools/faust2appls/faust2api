@@ -3,7 +3,7 @@
 #####################################################################
 #                                                                   #
 #    Generates an API for Android or iOS based on a Faust object    #
-#               (c) Romain Michon CCRMA and Grame, 2016             #
+#               (c) Romain Michon CCRMA and Grame, 2016-2018        #
 #                                                                   #
 #####################################################################
 
@@ -26,9 +26,13 @@ NVOICES="0"
 #PACKAGENAME="0"
 POLY2="0"
 MIDI="0"
+SOUNDFILE="0"
 OSC="0"
 NODOC="0"
+NOZIP="0"
 EFFECT=""
+BUILD="0"
+DYNAMIC_DSP="0"
 
 COREAUDIO_DRIVER="0"
 ANDROID_DRIVER="0"
@@ -64,47 +68,59 @@ echoHelp ()
     echo "Global options:"
     echo "   -nvoices N : creates a polyphonic object with N voices."
     echo "   -effect <effect.dsp>: adds an effect to the polyphonic synth (this option is ignored if -nvoices is not specified)."
-	echo "   -nodoc : prevents documentation from being generated."
+    echo "   -effect auto: adds an effect (extracted automatically from the dsp file) to the polyphonic synth (this option is ignored if -nvoices is not specified)."
+    echo "   -nodoc : prevents documentation from being generated."
+    echo "   -nozip : prevents generated files to be put in a zip file."
     echo ""
     echo "Android specific options:"
     echo "   -package : set the JAVA package name (e.g. '-package mypackage' will change the JAVA package name to 'mypackage.DspFaust'). The default package name is 'com.DspFaust.'"
     echo ""
-    echo "iOS specific options "
+    echo "iOS specific options"
     echo "   -midi : add built-in RtMidi support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
-    echo "CoreAudio specific options "
+    echo "CoreAudio specific options"
     echo "   -midi : add built-in RtMidi support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
-    echo "ALSA specific options "
+    echo "ALSA specific options"
     echo "   -midi : add built-in RtMidi support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
-    echo "JACK specific options "
+    echo "JACK specific options"
     echo "   -midi : activate JACK MIDI support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
+    echo "   -build : build a ready to test binary."
+    echo "   -dynamic : add libfaust/LLVM dynamic DSP compilation mode."
     echo ""
-    echo "PortAudio specific options "
+    echo "PortAudio specific options"
     echo "   -midi : add built-in RtMidi support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
-    echo "RTAudio specific options "
+    echo "RTAudio specific options"
     echo "   -midi : add built-in RtMidi support to the API."
     echo "   -osc : add built-in OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
-    echo "JUCE specific options "
+    echo "JUCE specific options"
     echo "   -midi : add JUCE MIDI support to the API."
     echo "   -osc : add JUCE OSC support to the API."
+    echo "   -soundfile : add built-in Soundfile support to the API."
     echo ""
 }
 
 createAPI ()
 {
+
     cp -r $FAUSTLIB/api/DspFaust.h $APIFOLDER
-    faust -i -a api/DspFaust.cpp $OPTIONS "$FILE" -o "$APIFOLDER/DspFaust.cpp" || exit 1
+    faust $OPTIONS -i -a api/DspFaust.cpp "$FILE" -o "$APIFOLDER/DspFaust.cpp" || exit 1
     if [ "$POLY2" = "1" ]; then
-        faust -i -cn effect -a minimal-effect.cpp $EFFECT | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp" || exit 1
+        faust $OPTIONS -i -cn effect -a minimal-effect.cpp $EFFECT | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp" || exit 1
         echo "#define POLY2 1" | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp"
     fi
     if [ "$NVOICES" -gt "0" ]; then
@@ -115,6 +131,15 @@ createAPI ()
     fi
     if [ "$OSC" = "1" ]; then
         echo "#define OSCCTRL 1" | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp"
+    fi
+    if [ "$SOUNDFILE" = "1" ]; then
+        echo "#define SOUNDFILE 1" | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp"
+    fi
+    if [ "$DYNAMIC_DSP" = "1" ]; then
+        echo "#define DYNAMIC_DSP 1" | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp"
+    fi
+    if [ "$BUILD" = "1" ]; then
+        echo "#define BUILD 1" | cat - "$APIFOLDER/DspFaust.cpp" > temp && mv temp "$APIFOLDER/DspFaust.cpp"
     fi
 }
 
@@ -156,10 +181,18 @@ do
 		EFFECT=$1
     elif [ "$p" = "-midi" ]; then
         MIDI="1"
+    elif [ "$p" = "-soundfile" ]; then
+        SOUNDFILE="1"
     elif [ "$p" = "-osc" ]; then
         OSC="1"
-	elif [ "$p" = "-nodoc" ]; then
-		NODOC="1"
+    elif [ "$p" = "-nodoc" ]; then
+        NODOC="1"
+    elif [ "$p" = "-nozip" ]; then
+        NOZIP="1"
+    elif [ "$p" = "-build" ]; then
+        BUILD="1"
+    elif [ "$p" = "-dynamic" ]; then
+        DYNAMIC_DSP="1"
     elif [ $p = "-nvoices" ]; then
 		shift
 		NVOICES=$1
@@ -172,24 +205,50 @@ do
     else
         OPTIONS="$OPTIONS $p"
     fi
-
-shift
-
+    shift
 done
+
 
 if [ -z $FILE ]; then
     echo "Please, provide a Faust file to process"
     exit 1
 fi
 
+
+
 ###################################
 # GENERATING API
 ###################################
 
-APIFOLDER="dsp-faust"
+APIFOLDER="dsp-faust" # TODO could be selected by the user
 
 rm -r "$APIFOLDER" 2> /dev/null || true
 mkdir "$APIFOLDER"
+
+#---------------------------------------------------------
+# START CHECKING FOR AUTO EFFECT
+if [ "$NVOICES" -gt "0" ]; then
+if [ "$EFFECT" = "auto" ]; then
+    EFFECT="$APIFOLDER/autoeffect.dsp"
+    cat > "$EFFECT" << EndOfCode
+    adapt(1,1) = _;
+    adapt(2,2) = _,_;
+    adapt(1,2) = _ <: _,_;
+    adapt(2,1) = _,_ :> _;
+
+    adaptor(F,G) = adapt(outputs(F),inputs(G));
+
+    process = adaptor(library("$FILE").process, library("$FILE").effect) : library("$FILE").effect;
+EndOfCode
+    # We check this is a faust valid code. No error if it is not
+    faust $EFFECT -o /dev/null 2> /dev/null|| POLY2="0" EFFECT=""
+fi
+else
+    # No polyphony, make shure no effect
+    POLY2="0" EFFECT=""
+fi
+
+# END CHECKING FOR AUTO EFFECT
 
 if [ $ANDROID_DRIVER -eq 1 ]; then
     echo "Your dsp-faust.zip API package for Android is being created"
@@ -249,6 +308,31 @@ else
 fi
 
 ###################################
+# GENERATING BINARY
+###################################
+
+if [ "$BUILD" = "1" ]; then
+
+    if [ "$DYNAMIC_DSP" = "1" ]; then
+        echo "Compile as a binary named 'dynamic-api' "
+        # compile c++ to binary liked with lbfaust/LLSM
+        (
+            $CXX $CXXFLAGS $APIFOLDER/DspFaust.cpp /usr/local/lib/libfaust.a -lz -lncurses -lOSCFaust `llvm-config --ldflags --libs all --system-libs`  `pkg-config --cflags --static --libs jack sndfile` -o dynamic-api
+        ) > /dev/null || exit 1
+        exit 0
+   else
+        echo "Compile the ${FILE%.dsp} binary"
+        # compile c++ to binary
+        (
+            #$CXX $CXXFLAGS $APIFOLDER/DspFaust.cpp -lOSCFaust `pkg-config --cflags --static --libs jack sndfile` -o ${FILE%.dsp}
+            $CXX $CXXFLAGS $APIFOLDER/DspFaust.cpp -lOSCFaust `pkg-config --cflags --static --libs jack` -o ${FILE%.dsp}
+        ) > /dev/null || exit 1
+        exit 0
+    fi
+
+fi
+
+###################################
 # GENERATING API DOCUMENTATION
 ###################################
 
@@ -268,18 +352,21 @@ if [ $NODOC -eq 0 ]; then
 	PPBINARY=pp
 	READMEFILE="$APIFOLDER/README.md"
 
-	faust -i -a path-printer.cpp "$FILE" -o "$PPFILE" || exit 1
+	faust $OPTIONS -i -a path-printer.cpp "$FILE" -o "$PPFILE" || exit 1
 	if [ "$POLY2" = "1" ]; then
-		faust -i -cn effect -a minimal-effect.cpp $EFFECT | cat - "$PPFILE" > temp && mv temp "$PPFILE" || exit 1
+		faust $OPTIONS -i -cn effect -a minimal-effect.cpp $EFFECT | cat - "$PPFILE" > temp && mv temp "$PPFILE" || exit 1
 		echo "#define POLY2 1" | cat - "$PPFILE" > temp && mv temp "$PPFILE"
 	fi
-	if [ "$NVOICES" -gt "0" ]; then
-		echo "#define NVOICES $NVOICES" | cat - "$PPFILE" > temp && mv temp "$PPFILE"
-	fi
+    if [ "$NVOICES" -gt "0" ]; then
+        echo "#define NVOICES $NVOICES" | cat - "$PPFILE" > temp && mv temp "$PPFILE"
+    fi
+    if [ "$SOUNDFILE" = "1" ]; then
+        echo "#define SOUNDFILE 1" | cat - "$PPFILE"  > temp && mv temp "$PPFILE"
+    fi
 
 	# compile c++ to binary
 	(
-		$CXX $CXXFLAGS "$PPFILE" -o "$PPBINARY"
+		$CXX $CXXFLAGS "$PPFILE" `pkg-config --cflags --static --libs sndfile` -lpthread -o "$PPBINARY"
 	) > /dev/null || exit 1
 	rm "$PPFILE" || exit 1
 
@@ -294,8 +381,12 @@ fi
 # POST PROCESSING
 ###################################
 
-ZIPOUT="$APIFOLDER.zip"
+if [ "$NOZIP" = "0" ]; then
+    ZIPOUT="$APIFOLDER.zip"
+    rm $ZIPOUT 2> /dev/null || true
+    zip -r $ZIPOUT $APIFOLDER > /dev/null || exit 1
+else
+    mv $APIFOLDER/* . || exit 1
+fi
 
-rm $ZIPOUT 2> /dev/null || true
-zip -r $ZIPOUT $APIFOLDER > /dev/null || exit 1
 rm -r $APIFOLDER || exit 1

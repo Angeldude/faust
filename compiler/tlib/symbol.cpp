@@ -22,11 +22,12 @@
 #include    <stdlib.h>
 #include    <stdio.h>
 #include    <string.h>
-#include    "symbol.hh"
-#include    "compatibility.hh"
 #include    <iostream>
 #include    <cstring>
-#include    <assert.h>
+
+#include    "exception.hh"
+#include    "symbol.hh"
+#include    "compatibility.hh"
 
 using namespace std;
 
@@ -36,6 +37,7 @@ using namespace std;
  
 Symbol*	Symbol::gSymbolTable[kHashTableSize];
 
+map<const char*, unsigned int> Symbol::gPrefixCounters;
 
 /**
  * Search the hash table for the symbol of name \p str or returns a new one.
@@ -57,22 +59,20 @@ Symbol* Symbol::get(const string& str)
 Symbol* Symbol::get(const char* rawstr)
 {
     // ---replaces control characters with white spaces---
-    char* str = strdup(rawstr);
-    for (size_t i = 0; i < strlen(rawstr); i++) {
+    string str = rawstr;
+    for (size_t i = 0; i < str.size(); i++) {
         char c = rawstr[i];
         str[i] = (c >= 0 && c < 32) ? 32 : c;
     }
- 
-    unsigned int 	hsh  = calcHashKey(str);
+    unsigned int 	hsh  = calcHashKey(str.c_str());
     int 			bckt = hsh % kHashTableSize;
 	Symbol*			item = gSymbolTable[bckt];
   
-    while ( item && !item->equiv(hsh,str) ) item = item->fNext;
+    while (item && !item->equiv(hsh, str.c_str())) item = item->fNext;
 	Symbol* r = item ? item : gSymbolTable[bckt] = new Symbol(str, hsh, gSymbolTable[bckt]);
      
 	return r;
 }
-
 
 /**
  * Static method that searches the symbol table for a string. 
@@ -90,7 +90,6 @@ bool Symbol::isnew(const char* str)
 	return item == 0;
 }
 
-
 /**
  * Creates a new symbol with a name obtained by concatenating the \p str prefix with a number in order to make it unique
  * \param str the prefix of the name
@@ -99,18 +98,15 @@ bool Symbol::isnew(const char* str)
 
 Symbol* Symbol::prefix (const char* str)
 {
-	char 	name[256];
-    
-    static map<const char*, unsigned int> gPrefixCounters;
-	
+	char name[256];
+  	
 	for (int n = 0; n<10000; n++) {
 		snprintf(name, 256, "%s%d", str, gPrefixCounters[str]++);
 		if (isnew(name)) return get(name);
 	}
-	assert(false);
+	faustassert(false);
 	return get("UNIQUEOVERFLOW");
 }	
-
 
 /**
  * Check if the name of the symbol is equal to string \p str
@@ -124,10 +120,8 @@ Symbol* Symbol::prefix (const char* str)
  
 bool Symbol::equiv (unsigned int hash, const char *str) const
 {
-	return (fHash == hash) && (strcmp(fName,str) == 0);
+	return (fHash == hash) && (strcmp(fName.c_str(), str) == 0);
 }
-
-
 
 /**
  * Compute the 32-bits hash key of string \p str
@@ -138,12 +132,10 @@ bool Symbol::equiv (unsigned int hash, const char *str) const
 unsigned int Symbol::calcHashKey (const char* str)
 {
     unsigned int h = 0;
-
+    
     while (*str) h = (h << 1) ^ (h >> 20) ^ (*str++);
     return h;
 }
-
-
 
 /**
  * Constructs a symbol ready to be placed in the hash table. 
@@ -153,7 +145,7 @@ unsigned int Symbol::calcHashKey (const char* str)
  * \param nxt a pointer to the next symbol in the hash table entry
  */
 
-Symbol::Symbol(char* str, unsigned int hsh, Symbol* nxt)
+Symbol::Symbol(const string& str, unsigned int hsh, Symbol* nxt)
 {
     fName = str;
     fHash = hsh;
@@ -162,11 +154,15 @@ Symbol::Symbol(char* str, unsigned int hsh, Symbol* nxt)
 }
 
 Symbol::~Symbol ()
-{
-	free(fName);
-}
+{}
 
 ostream& Symbol::print (ostream& fout) const 					///< print a symbol on a stream
 {
 	return fout << fName;
+}
+
+void Symbol::init ()
+{
+    gPrefixCounters.clear();
+    memset(gSymbolTable, 0, sizeof(Symbol*) * kHashTableSize);
 }

@@ -19,8 +19,6 @@
  ************************************************************************
  ************************************************************************/
  
- 
- 
 /*****************************************************************************
 ******************************************************************************
 								NUM 
@@ -47,29 +45,34 @@ this header file.
 ******************************************************************************
 *****************************************************************************/
 
-
-#ifndef     __NUM__
-#define     __NUM__
+#ifndef __NUM__
+#define __NUM__
 
 #include <math.h>
+
+#include "garbageable.hh"
 
 //-------------------------------------------------------------------------
 // Class num = (type x (int + double))
 //		type 0 -> int
 //		type 1 -> double
 //-------------------------------------------------------------------------
-class num
+
+class num : public virtual Garbageable
 {
-	int		fType;
+    
+private:
+    
+	int	fType;
 	union { 
 		int 	i; 
 		double 	f;
 	} fData;
 
  public:
+    
 	// constructors
 	num (int x=0) 		: fType(0) 			{ fData.i = x; }
-	//num (double x) 		: fType(1)  		{ fData.f = (double)x; }
 	num (double x) 		: fType(1)  		{ fData.f = x; }
 	num (const num& n) 	: fType(n.fType) 	{ fData.i = n.fData.i; }
 
@@ -86,7 +89,6 @@ class num
 	bool operator != (const num& n) const { return fType != n.fType || fData.i != n.fData.i; }
 	
 };
-
 
 inline int isfloat (const num& n) { return n.type(); }
 
@@ -105,17 +107,15 @@ inline const num operator/ (const num& x, const num& y)
 inline const num operator% (const num& x, const num& y)	
 	{ return num(int(x)%int(y)); }
 
-
 // Bit shifting operations
-inline const num operator<< (const num& x, const num& y)	
+inline const num operator<< (const num& x, const num& y)
 	{ return num(int(x)<<int(y)); }
 
 inline const num operator>> (const num& x, const num& y)	
 	{ return num(int(x)>>int(y)); }
 
-
 // Bitwise operations
-inline const num operator& (const num& x, const num& y)	
+inline const num operator& (const num& x, const num& y)
 	{ return num(int(x)&int(y)); }
 
 inline const num operator| (const num& x, const num& y)	
@@ -124,9 +124,8 @@ inline const num operator| (const num& x, const num& y)
 inline const num operator^ (const num& x, const num& y)	
 	{ return num(int(x)^int(y)); }
 
-
 // Comparaison operations
-inline const num operator> (const num& x, const num& y)	
+inline const num operator> (const num& x, const num& y)
 	{ return (isfloat(x)|isfloat(y)) ? num(double(x)>double(y)) : num(int(x)>int(y)); }
 
 inline const num operator< (const num& x, const num& y)	
@@ -143,6 +142,5 @@ inline const num operator== (const num& x, const num& y)
 
 inline const num operator!= (const num& x, const num& y)	
 	{ return (isfloat(x)|isfloat(y)) ? num(double(x)!=double(y)) : num(int(x)!=int(y)); }
-
 
 #endif    

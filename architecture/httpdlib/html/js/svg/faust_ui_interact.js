@@ -4,7 +4,6 @@
  * obviously, the goal is to separate the two as much as possible
  */
 
-
 /*
   UTILITY FUNCTIONS
 */
@@ -49,7 +48,7 @@ _f4u$t.transform_to_array = function(transform) {
   while(true) {
     var match = matrix.exec(transform);
     if (match != null) {
-      out.push(["matrix",parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3]), parseFloat(match[4]), parseFloat(match[5]), parseFloat(match[6])]);
+      out.push(["matrix", parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3]), parseFloat(match[4]), parseFloat(match[5]), parseFloat(match[6])]);
       transform = transform.substr(match[0].length,transform.length-match[0].length);
       continue;
     }
@@ -181,7 +180,9 @@ _f4u$t.initiate_bargraph = function(axis, fullid, weakaxis, strongaxis, minval, 
   _f4u$t.IDS_TO_ATTRIBUTES[id]["step"] = step;
   _f4u$t.IDS_TO_ATTRIBUTES[id]["init"] = init;
   _f4u$t.IDS_TO_ATTRIBUTES[id]["unit"] = unit;
-  _f4u$t.IDS_TO_ATTRIBUTES[id]["label"] = label;
+  _f4u$t.IDS_TO_ATTRIBUTES[id]["integer"] = false;
+  _f4u$t.IDS_TO_ATTRIBUTES[id]["ndec"] = (maxval-minval) <= 10 ? 2 : (maxval-minval) <= 100 ? 1 : 0;;
+ _f4u$t.IDS_TO_ATTRIBUTES[id]["label"] = label;
   _f4u$t.IDS_TO_ATTRIBUTES[id]["address"] = address;
   _f4u$t.path_to_id(address, fullid);
 }
@@ -473,7 +474,7 @@ _f4u$t.touched = function(id) {
         && (_f4u$t._I[identifier].id.indexOf(id) != -1)) {
       return true;
     }
-  } 
+  }
   return false;
 }
 
@@ -522,7 +523,7 @@ _f4u$t.moveSliderViaAccelerometer = function(e, longid) {
   if (_f4u$t.IDS_TO_ATTRIBUTES[id].orientationmode == 'relative') {
     var nudge = (orientation - prev_orientation) * (length - sliderlen) / (_f4u$t.IDS_TO_ATTRIBUTES[id].orientation.high - _f4u$t.IDS_TO_ATTRIBUTES[id].orientation.low);
     aval = transform[0][axis + 1] + nudge;
-    
+
   } else {
     aval = _f4u$t.remap(orientation,
                         _f4u$t.IDS_TO_ATTRIBUTES[id].orientation.low,

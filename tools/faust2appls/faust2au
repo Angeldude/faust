@@ -8,6 +8,7 @@
 #####################################################################
 
 PATH=$PATH:/usr/local/bin
+DST=`pwd`
 
 #-------------------------------------------------------------------------------
 # Search where Faust is installed. Store '.../share/faust/' in $FLIB
@@ -37,9 +38,19 @@ fi
 #PHASE 1 : collects files and options from the command line
 
 DEBUG=0
+INSTALLAU=0
 MANUFACTURER="Grame"
 
 for p in $@; do
+
+	 if [ $p = "-help" ] || [ $p = "-h" ]; then
+        echo "faust2au [-httpd] [-osc] [-install] [-debug] <file.dsp>"
+        echo "Use '-httpd' to activate HTTP control"
+        echo "Use '-osc' to activate OSC control"
+        echo "Use '-debug' to print all the build steps and keep intermediate build folder"
+        exit
+    fi
+    
 	if [ "$p" = -omp ]; then
 		if [[ $CXX == "icpc" ]]; then
 			OMP="-openmp"
@@ -48,9 +59,9 @@ for p in $@; do
 		fi
 	fi
 
-	if [ "$p" = -debug ]; then
+	if [ "$p" = "-debug" ]; then
 		DEBUG=1
-	elif [ "$p" = -icc ]; then
+	elif [ "$p" = "-icc" ]; then
 		ignore=" "
 	elif [ $p = "-osc" ]; then
 		OSCDEFS="DEFINES += OSCCTRL"
@@ -60,6 +71,8 @@ for p in $@; do
 		HTTPLIBS="-lHTTPDFaust -lmicrohttpd"
 	elif [ $p = "-manufacturer" ]; then
 		$MANUFACTURER=$p
+	elif [ $p = "-install" ]; then
+		INSTALLAU=1
 	elif [ ${p:0:1} = "-" ]; then
 		OPTIONS="$OPTIONS $p"
 	elif [[ -f "$p" ]]; then
@@ -118,6 +131,7 @@ for f in $FILES; do
 	cp $f $TEMP_DIR
 	cp *.dsp $TEMP_DIR >& $PRINTDEV
 	cp *.lib $TEMP_DIR >& $PRINTDEV
+	
 	cd $TEMP_DIR
 	mkdir Source >& $PRINTDEV
 
@@ -244,4 +258,10 @@ for f in $FILES; do
 		echo "See $TEMP_DIR for build products"
 	fi
 
+	if [ $INSTALLAU -eq 0 ]; then
+		mv $AU_DIR/"$FILE_NAME".component .
+		echo ./"$FILE_NAME".component";"
+	else 
+		echo $AU_DIR/"$FILE_NAME".component";"
+	fi
 done

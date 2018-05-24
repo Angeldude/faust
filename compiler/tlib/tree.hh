@@ -70,20 +70,20 @@
 /*****************************************************************************
 ******************************************************************************/
 
+#ifndef __TREE__
+#define __TREE__
 
-
-#ifndef     __TREE__
-#define     __TREE__
+#include <vector>
+#include <map>
 
 #include "symbol.hh"
 #include "node.hh"
-#include <vector>
-#include <map>
-#include <assert.h>
+#include "garbageable.hh"
+#include "exception.hh"
 
 //---------------------------------API---------------------------------------
 
-class 	CTree;
+class 	CTree ;
 typedef CTree* Tree;
 
 typedef map<Tree, Tree>	plist;
@@ -106,10 +106,10 @@ typedef vector<Tree>	tvec;
  * WARNING : in the current implementation CTrees are allocated but never deleted
  **/
 
-class CTree
+class CTree : public virtual Garbageable
 {
  private:
-	static const int 	kHashTableSize = 2000000; //510511;	///< size of the hash table used for "hash consing"
+	static const int 	kHashTableSize = 400009; 	///< size of the hash table (prime number)
 	static Tree			gHashTable[kHashTableSize];	///< hash table used for "hash consing"
 
  public:
@@ -122,19 +122,19 @@ class CTree
     Node            fNode;				///< the node content of the tree
     void*           fType;				///< the type of a tree
     plist           fProperties;		///< the properties list attached to the tree
-    unsigned int	fHashKey;			///< the hashtable key
+    size_t			fHashKey;			///< the hashtable key
     int             fAperture;			///< how "open" is a tree (synthezised field)
     unsigned int	fVisitTime;			///< keep track of visits
     tvec            fBranch;			///< the subtrees
 
-	CTree (unsigned int hk, const Node& n, const tvec& br); 						///< construction is private, uses tree::make instead
+	CTree (size_t hk, const Node& n, const tvec& br); 						///< construction is private, uses tree::make instead
 
 	bool 		equiv 				(const Node& n, const tvec& br) const;	///< used to check if an equivalent tree already exists
-	static unsigned int	calcTreeHash 		(const Node& n, const tvec& br);		///< compute the hash key of a tree according to its node and branches
+	static size_t	calcTreeHash 		(const Node& n, const tvec& br);		///< compute the hash key of a tree according to its node and branches
 	static int	calcTreeAperture 	(const Node& n, const tvec& br);		///< compute how open is a tree
 
  public:
-	~CTree ();
+	virtual ~CTree ();
 
 	static Tree make (const Node& n, int ar, Tree br[]);		///< return a new tree or an existing equivalent one
 	static Tree make(const Node& n, const tvec& br);			///< return a new tree or an existing equivalent one
@@ -144,7 +144,7 @@ class CTree
  	int 		arity() const		{ return (int)fBranch.size();}	///< return the number of branches (subtrees) of a tree
     Tree 		branch(int i) const	{ return fBranch[i];	}	///< return the ith branch (subtree) of a tree
     const tvec& branches() const	{ return fBranch;	}       ///< return all branches (subtrees) of a tree
-    unsigned int 		hashkey() const		{ return fHashKey; 		}	///< return the hashkey of the tree
+    size_t 		hashkey() const		{ return fHashKey; 		}	///< return the hashkey of the tree
  	int 		aperture() const	{ return fAperture; 	}	///< return how "open" is a tree in terms of free variables
  	void 		setAperture(int a) 	{ fAperture=a; 			}	///< modify the aperture of a tree
 
@@ -152,7 +152,9 @@ class CTree
 	// Print a tree and the hash table (for debugging purposes)
 	ostream& 	print (ostream& fout) const; 					///< print recursively the content of a tree on a stream
 	static void control ();										///< print the hash table content (for debug purpose)
-
+    
+    static void init ();
+  
 	// type information
 	void		setType(void* t) 	{ fType = t; }
 	void*		getType() 			{ return fType; }
@@ -160,7 +162,7 @@ class CTree
     // Keep track of visited trees (WARNING : non reentrant)
     static void     startNewVisit()                 { ++gVisitTime; }
     bool            isAlreadyVisited()              { return fVisitTime==gVisitTime; }
-    void            setVisited()                    { /*assert(fVisitTime!=gVisitTime);*/ fVisitTime=gVisitTime; }
+    void            setVisited()                    { /*faustassert(fVisitTime!=gVisitTime);*/ fVisitTime=gVisitTime; }
 
 
 	// Property list of a tree
@@ -255,7 +257,7 @@ class Tabber
   public:
     Tabber(int n=0) : fIndent(n), fPostInc(0)	{}
     Tabber& operator++() 			{ fPostInc++; return *this;}
-	Tabber& operator--() 			{ assert(fIndent > 0); fIndent--; return *this; }
+	Tabber& operator--() 			{ faustassert(fIndent > 0); fIndent--; return *this; }
 
 	ostream& print (ostream& fout)
                         { for (int i=0; i<fIndent; i++) fout << '\t';  fIndent+=fPostInc; fPostInc=0; return fout; }
@@ -263,8 +265,5 @@ class Tabber
 
 //printing
 inline ostream& operator << (ostream& s, Tabber& t) { return t.print(s); }
-
-extern Tabber TABBER;
-
 
 #endif

@@ -26,7 +26,6 @@
  * ps format. Complex block-diagrams are automatically splitted.
  */
 
-
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -45,13 +44,14 @@
 #include "boxes.hh"
 #include "ppbox.hh"
 #include "prim2.hh"
+#include "global.hh"
 
 #include <vector>
 #include "devLib.h"
 #include "ppbox.hh"
 #include "xtended.hh"
 #include "occurrences.hh"
-#include "boxcomplexity.h"
+#include "boxcomplexity.hh"
 
 #include "schema.h"
 #include "drawschema.hh"
@@ -59,6 +59,7 @@
 #include "names.hh"
 #include "description.hh"
 #include "property.hh"
+#include "exception.hh"
 #include "files.hh"
 
 #if 0
@@ -109,7 +110,6 @@
 #define numcolor "#f44800"
 #endif
 
-
 #if 1
 #define linkcolor "#003366" 
 #define normalcolor "#4B71A1"
@@ -120,19 +120,6 @@
 #endif
 
 using namespace std;
-
-// external parameters
-extern int gFoldThreshold;				// max diagram complexity before folding
-
-
-// internal state during drawing
-static Occurrences* 	gOccurrences;
-static bool				sFoldingFlag;		// true with complex block-diagrams
-static stack<Tree>		gPendingExp;		// Expressions that need to be drawn
-static set<Tree>		gDrawnExp;			// Expressions drawn or scheduled so far
-static const char* 		gDevSuffix;			// .svg or .ps used to choose output device
-static string			gSchemaFileName;	// name of schema file beeing generated
-static map<Tree,string>	gBackLink;			// link to enclosing file for sub schema
 
 // prototypes of internal functions
 static void 	writeSchemaFile(Tree bd);
@@ -145,13 +132,11 @@ static schema* 	generateOutputSlotSchema(Tree a);
 static schema* 	generateInputSlotSchema(Tree a);
 static schema* 	generateBargraphSchema(Tree t);
 static schema* 	generateUserInterfaceSchema(Tree t);
+static schema* 	generateSoundfileSchema(Tree t);
 static char* 	legalFileName(Tree t, int n, char* dst);
 
 static schema*  addSchemaInputs(int ins, schema* x);
 static schema*  addSchemaOutputs(int outs, schema* x);
-
-
-
 
 /**
  *The entry point to generate from a block diagram as a set of
@@ -160,9 +145,9 @@ static schema*  addSchemaOutputs(int outs, schema* x);
  */
 void drawSchema(Tree bd, const char* projname, const char* dev)
 {
-	gDevSuffix 		= dev;
-	sFoldingFlag 	= boxComplexity(bd) > gFoldThreshold;
-
+	gGlobal->gDevSuffix 	= dev;
+	gGlobal->gFoldingFlag 	= boxComplexity(bd) > gGlobal->gFoldThreshold;
+   
 	mkchdir(projname); 			// create a directory to store files
 
 	scheduleDrawing(bd);		// schedule the initial drawing
@@ -174,13 +159,11 @@ void drawSchema(Tree bd, const char* projname, const char* dev)
 	cholddir();					// return to current directory
 }
 
-
 /************************************************************************
  ************************************************************************
 							IMPLEMENTATION
  ************************************************************************
  ************************************************************************/
-
 
 //------------------- to schedule and retreive drawing ------------------
 
@@ -189,10 +172,10 @@ void drawSchema(Tree bd, const char* projname, const char* dev)
  */
 static void scheduleDrawing(Tree t)
 {
-	if (gDrawnExp.find(t) == gDrawnExp.end()) {
-		gDrawnExp.insert(t);
-		gBackLink.insert(make_pair(t,gSchemaFileName));	// remember the enclosing filename
-		gPendingExp.push(t);
+	if (gGlobal->gDrawnExp.find(t) == gGlobal->gDrawnExp.end()) {
+		gGlobal->gDrawnExp.insert(t);
+		gGlobal->gBackLink.insert(make_pair(t,gGlobal->gSchemaFileName));	// remember the enclosing filename
+		gGlobal->gPendingExp.push(t);
 	}
 }
 
@@ -201,13 +184,11 @@ static void scheduleDrawing(Tree t)
  */
 static bool pendingDrawing(Tree& t)
 {
-	if (gPendingExp.empty()) return false;
-	t = gPendingExp.top();
-	gPendingExp.pop();
+	if (gGlobal->gPendingExp.empty()) return false;
+	t = gGlobal->gPendingExp.top();
+	gGlobal->gPendingExp.pop();
 	return true;
 }
-
-
 
 //------------------------ dealing with files -------------------------
 
@@ -224,43 +205,47 @@ static void writeSchemaFile(Tree bd)
 
 	char 			temp[1024];
 
-	gOccurrences = new Occurrences(bd);
-    getBoxType (bd, &ins, &outs);
+	gGlobal->gOccurrences = new Occurrences(bd);
+    getBoxType(bd, &ins, &outs);
 
 	bool hasname = getDefNameProperty(bd, id); 
 
-	//assert(hasname);
+	//faustassert(hasname);
 	if (!hasname) {
 		// create an arbitrary name 
 		id = tree(Node(unique("diagram_")));
 	}
 
 	// generate legal file name for the schema
-	stringstream s1; s1 << legalFileName(bd, 1024, temp) << "." << gDevSuffix;
-	gSchemaFileName = s1.str();
+    stringstream s1; s1 << legalFileName(bd, 1024, temp) << "." << gGlobal->gDevSuffix;
+    string res1 = s1.str();
+    gGlobal->gSchemaFileName = res1;
 
 	// generate the label of the schema
 	stringstream s2; s2 << tree2str(id);
-	string link = gBackLink[bd];
+	string link = gGlobal->gBackLink[bd];
     ts = makeTopSchema(addSchemaOutputs(outs, addSchemaInputs(ins, generateInsideSchema(bd))), 20, s2.str(), link);
 	// draw to the device defined by gDevSuffix
-	if (strcmp(gDevSuffix, "svg") == 0) {
-		SVGDev dev(s1.str().c_str(), ts->width(), ts->height());
-		ts->place(0,0, kLeftRight);
-		ts->draw(dev);
-        { collector c; ts->collectTraits(c); c.draw(dev); }
-	} else {
-		PSDev dev(s1.str().c_str(), ts->width(), ts->height());
-		ts->place(0,0, kLeftRight);
-		ts->draw(dev);
+    if (strcmp(gGlobal->gDevSuffix, "svg") == 0) {
+        SVGDev dev(res1.c_str(), ts->width(), ts->height());
+        ts->place(0,0, kLeftRight);
+        ts->draw(dev);
         {
             collector c;
             ts->collectTraits(c);
             c.draw(dev);
         }
-	}
+    } else {
+        PSDev dev(res1.c_str(), ts->width(), ts->height());
+        ts->place(0,0, kLeftRight);
+        ts->draw(dev);
+        {
+            collector c;
+            ts->collectTraits(c);
+            c.draw(dev);
+        }
+    }
 }
-
 
 /**
  * Transform the definition name property of tree <t> into a
@@ -286,9 +271,7 @@ static char* legalFileName(Tree t, int n, char* dst)
 	return dst;
 }
 
-
 //------------------------ generating the schema -------------------------
-
 
 /**
  * isInverter(t) returns true if t == '*(-1)'. This test is used
@@ -315,13 +298,11 @@ static bool isInverter(Tree t)
     return false;
 }
 
-
 /**
  * Compute the Pure Routing property, that is expressions
  * only made of cut, wires and slots. No labels will be
  * dispayed for pure routing expressions.
  */
-property<bool> gPureRoutingProperty;
 
 static bool isPureRouting(Tree t)
 {
@@ -329,7 +310,7 @@ static bool isPureRouting(Tree t)
     int     ID;
     Tree    x,y;
 
-    if (gPureRoutingProperty.get(t,r)) {
+    if (gGlobal->gPureRoutingProperty->get(t,r)) {
         return r;
     } else if (    isBoxCut(t)
                 || isBoxWire(t)
@@ -340,14 +321,13 @@ static bool isPureRouting(Tree t)
                 || (isBoxSplit(t,x,y) && isPureRouting(x) && isPureRouting(y))
                 || (isBoxMerge(t,x,y) && isPureRouting(x) && isPureRouting(y))
               ) {
-        gPureRoutingProperty.set(t,true);
+        gGlobal->gPureRoutingProperty->set(t,true);
         return true;
     } else {
-        gPureRoutingProperty.set(t,false);
+        gGlobal->gPureRoutingProperty->set(t,false);
         return false;
     }
 }
-
 
 /**
  * Generate an appropriate schema according to
@@ -367,13 +347,13 @@ static schema* generateDiagramSchema(Tree t)
 		//cerr << t << "\tNAMED : " << s.str() << endl;
 	}
 
-	if ( sFoldingFlag && /*(gOccurrences->getCount(t) > 0) &&*/
+	if (gGlobal->gFoldingFlag && /*(gOccurrences->getCount(t) > 0) &&*/
 			(boxComplexity(t) > 2) && getDefNameProperty(t, id)) {
 		char 	temp[1024];
 		getBoxType(t, &ins, &outs);
 		stringstream s, l;
 		s << tree2str(id);
-		l << legalFileName(t,1024,temp) << "." << gDevSuffix;
+		l << legalFileName(t,1024,temp) << "." << gGlobal->gDevSuffix;
 		scheduleDrawing(t);
 		return makeBlockSchema(ins, outs, s.str(), linkcolor, l.str());
 
@@ -388,8 +368,6 @@ static schema* generateDiagramSchema(Tree t)
 		return generateInsideSchema(t);
 	}
 }
-
-
 
 /**
  * Generate the inside schema of a block diagram
@@ -406,7 +384,6 @@ static schema* generateInsideSchema(Tree t)
 	prim3	p3;
 	prim4	p4;
 	prim5	p5;
-
 
 	xtended* xt = (xtended*)getUserData(t);
 
@@ -438,6 +415,7 @@ static schema* generateInsideSchema(Tree t)
 	else if (isBoxNumEntry(t)) 		{ return generateUserInterfaceSchema(t); }
 	else if (isBoxVBargraph(t))		{ return generateBargraphSchema(t); }
 	else if (isBoxHBargraph(t))		{ return generateBargraphSchema(t); }
+	else if (isBoxSoundfile(t))		{ return generateSoundfileSchema(t); }
 
 	// don't draw group rectangle when labels are empty (ie "")
     else if (isBoxVGroup(t,l,a))	{ 	stringstream s; s << "vgroup(" << extractName(l) << ")";
@@ -464,13 +442,16 @@ static schema* generateInsideSchema(Tree t)
 		} else {
 			return makeDecorateSchema(generateAbstractionSchema(generateInputSlotSchema(a), b), 10, "Abstraction");
 		}
-	}
+        
+    } else if (isBoxEnvironment(t)) { 
+        return makeBlockSchema(0, 0, "environment{...}", normalcolor, ""); 
 
-	else {
-
-		fprintf(stderr, "Internal Error, box expression not recognized : "); print(t, stderr); fprintf(stderr, "\n");
-		exit(1);
-
+	} else {
+        stringstream error;
+        error << "ERROR : box expression not recognized : ";
+        t->print(error);
+        error << endl;
+        throw faustexception(error.str());
 	}
 }
 
@@ -479,7 +460,7 @@ static schema* generateInsideSchema(Tree t)
  */
 static void UserInterfaceDescription(Tree box, string& d)
 {
-    Tree    t1, label, cur, min, max, step;
+    Tree    t1, label, cur, min, max, step, chan;
     stringstream 	fout;
     // user interface
          if (isBoxButton(box, label))	fout << "button(" << extractName(label) << ')';
@@ -529,23 +510,25 @@ static void UserInterfaceDescription(Tree box, string& d)
              << boxpp(max) << ", "
              << boxpp(step)<< ')';
     }
+    else if (isBoxSoundfile(box, label, chan)) 	{
+        fout << "soundfile("
+             << extractName(label) << ", "
+             << boxpp(chan) << ')';
+    }
     else {
-        cerr << "INTERNAL ERROR : unknown user interface element " << endl;
-        exit(0);
+        throw faustexception("ERROR : unknown user interface element\n");
     }
     d = fout.str();
 }
 
-
 /**
  * Generate a 0->1 block schema for a user interface element
  */
-static schema* 	generateUserInterfaceSchema(Tree t)
+static schema* generateUserInterfaceSchema(Tree t)
 {
     string s; UserInterfaceDescription(t,s);
     return makeBlockSchema(0, 1, s, uicolor, "");
 }
-
 
 /**
  * Generate a 1->1 block schema for a user interface bargraph
@@ -556,31 +539,40 @@ static schema* generateBargraphSchema(Tree t)
     return makeBlockSchema(1, 1, s, uicolor, "");
 }
 
-
+/**
+ * Generate a 1->c+2 block schema for soundfile("toto",c) 
+ */
+static schema* generateSoundfileSchema(Tree t)
+{
+    Tree label, chan;
+    if (isBoxSoundfile(t, label, chan)) {
+        int n = tree2int(chan);
+        string s; UserInterfaceDescription(t,s);
+        return makeBlockSchema(1, 3+n, s, uicolor, "");
+    } else {
+        throw faustexception("ERROR : soundfile\n");
+    }
+}
 
 /**
  * Generate a 1->0 block schema for an input slot
  */
 static schema* generateInputSlotSchema(Tree a)
 {
-	Tree id; assert(getDefNameProperty(a, id));
+	Tree id; faustassert(getDefNameProperty(a, id));
 	stringstream s; s << tree2str(id);
 	return makeBlockSchema(1, 0, s.str(), slotcolor, "");
 }
-
-
 
 /**
  * Generate a 0->1 block schema for an output slot
  */
 static schema* generateOutputSlotSchema(Tree a)
 {
-	Tree id; assert(getDefNameProperty(a, id));
+	Tree id; faustassert(getDefNameProperty(a, id));
 	stringstream s; s << tree2str(id);
 	return makeBlockSchema(0, 1, s.str(), slotcolor, "");
 }
-
-
 
 /**
  * Generate an abstraction schema by placing in sequence
@@ -588,7 +580,7 @@ static schema* generateOutputSlotSchema(Tree a)
  */
 static schema* generateAbstractionSchema(schema* x, Tree t)
 {
-	Tree 	a,b;
+	Tree a,b;
 
 	while (isBoxSymbolic(t,a,b)) {
 		x = makeParSchema(x, generateInputSlotSchema(a));
@@ -614,7 +606,6 @@ static schema* addSchemaInputs(int ins, schema* x)
         return makeSeqSchema(y,x);
     }
 }
-
 
 static schema* addSchemaOutputs(int outs, schema* x)
 {

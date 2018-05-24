@@ -19,18 +19,20 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #ifndef _SIGNALS_
 #define _SIGNALS_
 
+#include <vector>
+
+#include "exception.hh"
 #include "tlib.hh"
 #include "binop.hh"
-#include <assert.h>
-#include <vector>
 
 using namespace std;
 
+#if defined(WIN32) && !defined(__GNUC__)
+#pragma warning (disable : 4800)
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 /**
@@ -48,7 +50,6 @@ bool  isSigInt(Tree t, int* i);
 bool  isSigReal(Tree t, double* r);
 
 // waveforms
-
 Tree sigWaveform (const tvec& wf);
 bool isSigWaveform(Tree s);
 
@@ -83,7 +84,6 @@ bool  isSigFloatCast(Tree t);
 bool  isSigIntCast(Tree t, Tree& x);
 bool  isSigFloatCast(Tree t, Tree& x);
 
-
 // tables
 Tree sigRDTbl (Tree t, Tree i);
 Tree sigWRTbl (Tree id, Tree t, Tree i, Tree s);
@@ -96,16 +96,8 @@ bool isSigTable (Tree t, Tree& id, Tree& n, Tree& sig);
 bool isSigGen   (Tree t, Tree& content);
 bool isSigGen   (Tree t);
 
-inline Tree sigWriteReadTable(Tree n, Tree init, Tree widx, Tree wsig, Tree ridx)
-{
-	return sigRDTbl(sigWRTbl(nil, sigTable(nil, n, sigGen(init)), widx, wsig), ridx);
-}
-
-inline Tree sigReadOnlyTable(Tree n, Tree init, Tree ridx)
-{
-	return sigRDTbl(sigTable(nil, n, sigGen(init)), ridx);
-}
-
+Tree sigWriteReadTable(Tree n, Tree init, Tree widx, Tree wsig, Tree ridx);
+Tree sigReadOnlyTable(Tree n, Tree init, Tree ridx);
 
 // Tables for documentator
 // used to replace real tables for documentation purposes only
@@ -186,12 +178,12 @@ Tree minusNum	(Tree a);
 Tree inverseNum	(Tree a);
 
 // tests on constant signals
-inline bool isNum		(Tree a)	{ assert(a); return isNum(a->node()); }
-inline bool isZero		(Tree a)	{ assert(a); return isZero(a->node()); }
-inline bool isGTZero	(Tree a)	{ assert(a); return isGTZero(a->node()); }
-inline bool isGEZero	(Tree a)	{ assert(a); return isGEZero(a->node()); }
-inline bool isOne		(Tree a)	{ assert(a); return isOne(a->node()); }
-inline bool isMinusOne	(Tree a)	{ assert(a); return isMinusOne(a->node()); }
+inline bool isNum		(Tree a)	{ faustassert(a); return isNum(a->node()); }
+inline bool isZero		(Tree a)	{ faustassert(a); return isZero(a->node()); }
+inline bool isGTZero	(Tree a)	{ faustassert(a); return isGTZero(a->node()); }
+inline bool isGEZero	(Tree a)	{ faustassert(a); return isGEZero(a->node()); }
+inline bool isOne		(Tree a)	{ faustassert(a); return isOne(a->node()); }
+inline bool isMinusOne	(Tree a)	{ faustassert(a); return isMinusOne(a->node()); }
 
 //projection for recursive groups
 Tree sigProj (int i, Tree rgroup);
@@ -206,7 +198,6 @@ inline bool isNum(const Tree& t, num& n)
 	if (isInt(t->node(), &i)) { n = i; return true;  }
 	return false;
 }
-
 
 /*****************************************************************************
 							 User Interface Elements
@@ -245,6 +236,36 @@ Tree sigAttach   (Tree x, Tree y);
 bool isSigAttach (Tree s);
 bool isSigAttach (Tree s, Tree& x, Tree& y);
 
+Tree sigEnable   (Tree x, Tree y);
+bool isSigEnable (Tree s);
+bool isSigEnable (Tree s, Tree& x, Tree& y);
+
+Tree sigControl   (Tree x, Tree y);
+bool isSigControl (Tree s);
+bool isSigControl (Tree s, Tree& x, Tree& y);
+
+/*****************************************************************************
+							 Sounfiles (also UI elements)
+*****************************************************************************/
+/*
+A boxSounfile(label,c) has 1 input channel and c+3 output channels:
+    0   sigSoundfileLength(label):  the number of frames of the soundfile (NK)
+    1   sigSoundfileRate(label): the sampling rate encoded in the file (NK)
+    2   sigSoundfileChannels(label): the number of channels of the file (NK)
+    3.. sigSoundfileBuffer(label, c, ridx): the cth channel content (RK ou RS)
+*/
+
+Tree sigSoundfile(Tree label);
+Tree sigSoundfileLength(Tree sf);
+Tree sigSoundfileRate(Tree sf);
+Tree sigSoundfileChannels(Tree sf);
+Tree sigSoundfileBuffer(Tree sf, Tree chan, Tree ridx);
+
+bool isSigSoundfile(Tree s, Tree& label);
+bool isSigSoundfileLength(Tree s, Tree& sf);
+bool isSigSoundfileRate(Tree s, Tree& sf);
+bool isSigSoundfileChannels(Tree s, Tree& sf);
+bool isSigSoundfileBuffer(Tree s, Tree& sf, Tree& chan, Tree& ridx);
 
 /*****************************************************************************
 							 matrix extension
@@ -263,8 +284,6 @@ bool isSigTupleAccess(Tree s, Tree& ts, Tree& idx);
 // create a tuple of signals
 Tree sigCartesianProd (Tree s1, Tree s2);
 
-
-
 /*****************************************************************************
 							 FTZ wrapping
     Add FTZ wrapping to a signal
@@ -272,13 +291,11 @@ Tree sigCartesianProd (Tree s1, Tree s2);
 
 Tree sigFTZ (Tree s);
 
-
 /*****************************************************************************
 							 access to sub signals of a signal
 *****************************************************************************/
 
 int	getSubSignals (Tree sig, vector<Tree>& vsigs, bool visitgen=true);
-
 
 /**
  * Test if exp is very simple that is it
@@ -287,7 +304,5 @@ int	getSubSignals (Tree sig, vector<Tree>& vsigs, bool visitgen=true);
  * @return true if it a very simple signal
  */
 bool verySimple(Tree exp);
-
-
 
 #endif

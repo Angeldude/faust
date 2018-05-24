@@ -18,50 +18,48 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  ************************************************************************
  ************************************************************************/
- 
- 
- 
+
 #ifndef __signals_intervals__
 #define __signals_intervals__
 
 #include <math.h>
 #include <iostream>
 
-#ifdef WIN32
+#ifdef _WIN32
 inline double log2(double e) { return log(e)/log(double(2)); }
 #endif
 
 using namespace std;
 
-struct interval 
+inline double min(double x, double y) { return (x<y) ? x:y; }
+inline double max(double x, double y) { return (x>y) ? x:y; }
+inline double min4(double a, double b, double c, double d)	{ return min(min(a, b), min(c, d)); }
+inline double max4(double a, double b, double c, double d)	{ return max(max(a, b), max(c, d)); }
+
+struct interval : public virtual Garbageable
 {
 	bool	valid;			///< true if it is a valid interval
 	double	lo;				///< minimal value
 	double	hi;				///< maximal value
-	
+
     interval ()						: valid(false), lo(-HUGE_VAL), hi(HUGE_VAL) {}
     interval (double n) 			: valid(true), lo(n), hi(n) {}
 	interval (double n, double m) 	: valid(true), lo(min(n,m)), hi(max(n,m)) {}
     interval (const interval& r)	: valid(r.valid), lo(r.lo), hi(r.hi) {}
-	
+
     bool isvalid()  { return valid; }
     bool isconst()  { return valid && (lo == hi); }
     bool haszero()  { return (lo <= 0) && (0 <= hi); }
 };
 
-inline ostream& operator<<(ostream& dst, const interval& i) 	
-{ 
+inline ostream& operator<<(ostream& dst, const interval& i)
+{
 	if (i.valid) {
-		return  dst << "interval(" << i.lo << ", " << i.hi << ")";
+		return dst << "interval(" << i.lo << ", " << i.hi << ")";
 	} else {
-		return  dst << "interval()";
+		return dst << "interval()";
 	}
 }
-
-inline double min(double x, double y) { return (x<y) ? x:y; }
-inline double max(double x, double y) { return (x>y) ? x:y; }
-inline double min4(double a, double b, double c, double d)	{ return min(min(a,b),min(c,d)); }
-inline double max4(double a, double b, double c, double d)	{ return max(max(a,b),max(c,d)); }
 
 inline interval reunion(const interval& x, const interval& y)
 {
@@ -72,24 +70,23 @@ inline interval reunion(const interval& x, const interval& y)
 	}
 }
 
-
-inline interval operator+(const interval& x, const interval& y) 	
-{ 
-	return (x.valid&y.valid) ? interval(x.lo+y.lo, x.hi+y.hi) : interval(); 
+inline interval operator+(const interval& x, const interval& y)
+{
+	return (x.valid&y.valid) ? interval(x.lo+y.lo, x.hi+y.hi) : interval();
 }
 
-inline interval operator-(const interval& x, const interval& y) 	
-{ 
-	return (x.valid & y.valid) ? interval(x.lo-y.hi, x.hi-y.lo) : interval();; 
+inline interval operator-(const interval& x, const interval& y)
+{
+	return (x.valid & y.valid) ? interval(x.lo-y.hi, x.hi-y.lo) : interval();;
 }
 
-inline interval operator*(const interval& x, const interval& y) 	
-{ 
+inline interval operator*(const interval& x, const interval& y)
+{
 	if (x.valid&y.valid) {
-		double a=x.lo*y.lo; 
-		double b=x.lo*y.hi; 
-		double c=x.hi*y.lo; 
-		double d=x.hi*y.hi;
+		double a = x.lo*y.lo;
+		double b = x.lo*y.hi;
+		double c = x.hi*y.lo;
+		double d = x.hi*y.hi;
 		return interval(min4(a,b,c,d), max4(a,b,c,d));
 	} else {
 		return interval();
@@ -98,14 +95,14 @@ inline interval operator*(const interval& x, const interval& y)
 
 inline interval operator/(const interval& x, const interval& y)
 {
-	return (x.valid && y.valid && (y.lo > 0 | y.hi < 0)) 
+	return (x.valid && y.valid && ((y.lo > 0) || (y.hi < 0)))
 			? x * interval(1/y.hi,1/y.lo)
 			: interval();
 }
 
 inline interval operator%(const interval& x, const interval& y)
 {
-	return (x.valid && y.valid && x.lo >= 0 && y.lo > 0) 
+	return (x.valid && y.valid && x.lo >= 0 && y.lo > 0)
 			? interval(0,y.hi)
 			: interval();
 }
@@ -156,18 +153,25 @@ inline interval operator^(const interval&, const interval&)
 	return interval();
 }
 
-inline interval operator<<(const interval&, const interval&)
+
+inline interval operator<<(const interval& x, const interval& y)
 {
-	return interval();
+	int hi = int(x.hi) << int(y.hi);
+	int lo = int(x.lo) << int(y.lo);
+
+	return interval(lo,hi);
 }
 
-inline interval operator>>(const interval&, const interval&)
+inline interval operator>>(const interval& x, const interval& y)
 {
-	return interval();
+	int hi = int(x.hi) >> int(y.lo);
+	int lo = int(x.lo) >> int(y.hi);
+
+	return interval(lo,hi);
 }
 
 // ---------------------comparaisons------------------------------
-// note : les comparaisons ne portent pas sur les intervals 
+// note : les comparaisons ne portent pas sur les intervals
 // mais l'interval des comparaisons de signaux
 
 inline interval operator<(const interval&, const interval&)
@@ -250,6 +254,6 @@ inline interval abs(const interval& x)
 	} else {
 		return x;
 	}
-}		
+}
 
 #endif

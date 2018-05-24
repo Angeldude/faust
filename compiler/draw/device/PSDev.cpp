@@ -21,16 +21,17 @@
  
 // PSDev.cpp
 
+#include "PSDev.h"
+#include "compatibility.hh"
+#include "global.hh"
+#include "exception.hh"
+
 #include <string.h>
 #include <math.h>
 #include <iostream>
-
-#include "compatibility.hh"
-#include "PSDev.h"
+#include <sstream>
 
 using namespace std;
-
-static int gFileNum = 0;
 
 static char * addFileNum(const char* fname)
 {
@@ -45,7 +46,7 @@ static char * addFileNum(const char* fname)
 	f[i] = 0;
 
 	// add number and .ps suffix
-	snprintf(s, 255, "%s-%d.ps", f, ++gFileNum);
+	snprintf(s, 256, "%s-%d.ps", f, ++gGlobal->gFileNum);
 	//cerr << "file name " << s << endl;
 	return strdup(s);
 }
@@ -53,13 +54,13 @@ static char * addFileNum(const char* fname)
 PSDev::PSDev(const char* ficName, double largeur, double hauteur)
 {
 	if ((fic_repr = fopen(addFileNum(ficName),"w+")) == NULL) { 
-	//if ((fic_repr = fopen(ficName,"w+")) == NULL) { 
-		cout<<"Impossible to create or open "<<ficName<<endl;
-        return;
+		stringstream error;
+		error << "ERROR : impossible to create or open " << ficName << endl;
+        throw faustexception(error.str());
 	}
 
-	if(largeur<hauteur)
-		largeur=hauteur;
+	if (largeur < hauteur)
+		largeur = hauteur;
 
 	fprintf(fic_repr,"%%!PS-Adobe-3.0 \n");
 	//fprintf(fic_repr,"%%%%Pages: (atend) \n");

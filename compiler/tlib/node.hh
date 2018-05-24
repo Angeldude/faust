@@ -19,8 +19,6 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 /*****************************************************************************
 ******************************************************************************/
 
@@ -49,17 +47,14 @@
 /******************************************************************************
 *****************************************************************************/
 
-
 #ifndef     __NODE__
 #define     __NODE__
 
-#if defined(WIN32) && !defined(__MINGW32__)
-#define int64_t __int64
-#endif
-
 #include <iostream>
 #include "symbol.hh"
+#include "garbageable.hh"
 #include <sys/types.h>
+#include <stdint.h>
 
 using namespace std;
 
@@ -68,11 +63,11 @@ using namespace std;
  */
 enum { kIntNode, kDoubleNode, kSymNode, kPointerNode };
 
-
 /**
  * Class Node = (type x (int + double + Sym + void*))
  */
-class Node
+ 
+class Node : public virtual Garbageable
 {
 	int		fType;
 	union {
@@ -85,6 +80,7 @@ class Node
 
  public:
 	// constructeurs (assume size of field f is the biggest)
+    Node () { fData.v = 0; }
 	Node (int x) 				: fType(kIntNode) 		{ fData.f = 0; fData.i = x; }
 	Node (double x) 			: fType(kDoubleNode) 	{ fData.f = x; }
 	Node (const char* name)		: fType(kSymNode) 		{ fData.f = 0; fData.s = symbol(name); }
@@ -116,8 +112,6 @@ class Node
 //printing
 inline ostream& operator << (ostream& s, const Node& n) { return n.print(s); }
 
-
-
 //-------------------------------------------------------------------------
 // Perdicates and pattern matching
 //-------------------------------------------------------------------------
@@ -138,7 +132,6 @@ inline bool isInt (const Node& n, int* x)
 	}
 }
 
-
 // floats
 inline bool isDouble (const Node& n)
 {
@@ -154,8 +147,6 @@ inline bool isDouble (const Node& n, double* x)
 		return false;
 	}
 }
-
-
 
 inline bool isZero (const Node& n)
 {
@@ -187,15 +178,13 @@ inline bool isMinusOne (const Node& n)
 		|| ((n.type() == kIntNode) && (n.getInt() == -1));
 }
 
-bool sameMagnitude(const Node& a, const Node& b); 
-
+bool sameMagnitude(const Node& a, const Node& b);
 
 // numbers in general
 inline bool isNum (const Node& n)
 {
 	return isInt(n)||isDouble(n);
 }
-
 
 // symbols
 inline bool isSym (const Node& n)
@@ -213,7 +202,6 @@ inline bool isSym (const Node& n, Sym* x)
 	}
 }
 
-
 // void pointer
 inline bool isPointer (const Node& n)
 {
@@ -230,13 +218,9 @@ inline bool isPointer (const Node& n, void** x)
 	}
 }
 
-
-
-
 //-------------------------------------------------------------------------
 // Mathematical operations on nodes
 //-------------------------------------------------------------------------
-
 
 // arithmetic operations
 
@@ -265,7 +249,6 @@ inline const Node minusNode (const Node& x)
 inline const Node inverseNode (const Node& x)
     { return divExtendedNode(1.0f, x); }
 
-
 // bit shifting operations
 
 inline const Node lshNode (const Node& x, const Node& y)
@@ -273,7 +256,6 @@ inline const Node lshNode (const Node& x, const Node& y)
 
 inline const Node rshNode (const Node& x, const Node& y)
 	{ return Node(int(x)>>int(y)); }
-
 
 // boolean operations on bits
 
@@ -285,7 +267,6 @@ inline const Node orNode (const Node& x, const Node& y)
 
 inline const Node xorNode (const Node& x, const Node& y)
 	{ return Node(int(x)^int(y)); }
-
 
 // compare operations
 
@@ -307,7 +288,5 @@ inline const Node eqNode (const Node& x, const Node& y)
 inline const Node neNode (const Node& x, const Node& y)
 	{ return (isDouble(x)||isDouble(y)) ? Node(double(x)!=double(y)) : Node(int(x)!=int(y)); }
 #endif
-
-
 
 #endif

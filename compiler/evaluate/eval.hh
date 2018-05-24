@@ -22,8 +22,6 @@
 #ifndef __EVALBOXES__
 #define __EVALBOXES__
  
- 
- 
 /** 						
  * \file eval.hh 
  *
@@ -32,8 +30,6 @@
  * A strict lambda-calculus evaluator for block diagram expressions.
  *
  **/
- 
- 
 
 #include "boxes.hh"
 #include "sourcereader.hh"
@@ -49,7 +45,6 @@
  
 Tree evalprocess (Tree eqlist);
 Tree evaldocexpr (Tree docexpr, Tree eqlist);
-
 
 /**
  * Push a new layer and add a single definition.

@@ -83,6 +83,10 @@ audio* audio_device = NULL;
 CocoaUI* uiinterface = NULL;
 FUI* finterface = NULL;
 
+#if SOUNDFILE
+SoundUI* soundinterface = NULL;
+#endif
+
 #if OSCCTRL
 GUI* oscinterface = NULL;
 #endif
@@ -139,7 +143,6 @@ static void jack_shutdown_callback(const char* message, void* arg)
     delete tmp_dsp;
     
 #if POLY2
-    
     bool group = true;
     std::cout << "Started with " << nvoices << " voices\n";
     dsp_poly = new mydsp_poly(new mydsp(), nvoices, true, group);
@@ -153,9 +156,7 @@ static void jack_shutdown_callback(const char* message, void* arg)
     #else
         DSP = new dsp_sequencer(dsp_poly, new effect());
     #endif
-    
 #else
-    
     bool group = true;
     
     if (nvoices > 0) {
@@ -182,7 +183,6 @@ static void jack_shutdown_callback(const char* message, void* arg)
         DSP = new mydsp();
     #endif
     }
-    
 #endif
     
     // Faust initialization
@@ -219,13 +219,13 @@ static void jack_shutdown_callback(const char* message, void* arg)
     int oscTransmit = (int)[[NSUserDefaults standardUserDefaults] integerForKey:@"oscTransmit"];
     
     oscIPOutputText = [[NSUserDefaults standardUserDefaults] stringForKey:@"oscIPOutputText"];
-    oscIPOutputText =  (oscIPOutputText) ? oscIPOutputText : @"192.168.1.1";
+    oscIPOutputText = (oscIPOutputText) ? oscIPOutputText : @"192.168.1.1";
     
     oscInputPortText = [[NSUserDefaults standardUserDefaults] stringForKey:@"oscInputPortText"];
-    oscInputPortText =  (oscInputPortText) ? oscInputPortText : @"5510";
+    oscInputPortText = (oscInputPortText) ? oscInputPortText : @"5510";
     
     oscOutputPortText = [[NSUserDefaults standardUserDefaults] stringForKey:@"oscOutputPortText"];
-    oscOutputPortText =  (oscOutputPortText) ? oscOutputPortText : @"5511";
+    oscOutputPortText = (oscOutputPortText) ? oscOutputPortText : @"5511";
     
     [self openAudio];
     
@@ -233,6 +233,13 @@ static void jack_shutdown_callback(const char* message, void* arg)
     DSP->init(int(sample_rate));
     DSP->buildUserInterface(uiinterface);
     DSP->buildUserInterface(finterface);
+    
+#if SOUNDFILE
+    // Use bundle path
+    soundinterface = new SoundUI(SoundUI::getBinaryPath());
+    DSP->buildUserInterface(soundinterface);
+#endif
+    
 #if MIDICTRL
     DSP->buildUserInterface(midiinterface);
 #endif
@@ -257,7 +264,7 @@ static void jack_shutdown_callback(const char* message, void* arg)
     
     // Notification when device orientation changed
     [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(orientationChanged:)
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(orientationChanged:)
                                         name:UIDeviceOrientationDidChangeNotification object:nil];
     
     // Abstract layout is the layout computed without regarding screen dimensions. To be displayed, we adapt it to the device and orientation
@@ -517,6 +524,10 @@ error:
     
     delete uiinterface;
     delete finterface;
+    
+#if SOUNDFILE
+    delete soundinterface;
+#endif
     
 #if OSCCTRL
     delete oscinterface;
@@ -1390,13 +1401,13 @@ static inline const char* transmit_value(int num)
     _maxText.text = [NSString stringWithFormat:@"%1.1f", _maxSlider.value];
     
     // If default parameters : remove widget from list
-    if (_selectedWidget->getAssignationType() == kAssignationNone)
-    {
-        for (i = _assignatedWidgets.begin(); i != _assignatedWidgets.end(); i++)
-        {
-            if (*i == _selectedWidget)
-            {
-                _assignatedWidgets.erase(i);
+    if (_selectedWidget->getAssignationType() == kAssignationNone) {
+        i = _assignatedWidgets.begin();
+        while (i != _assignatedWidgets.end()) {
+            if (*i == _selectedWidget) {
+                i = _assignatedWidgets.erase(i);
+            } else {
+                i++;
             }
         }
     }
@@ -1485,8 +1496,9 @@ static inline const char* transmit_value(int num)
     
     // Reset DSP state to default
     DSP->init(int(sample_rate));
-    
-    for (i = _assignatedWidgets.begin(); i != _assignatedWidgets.end(); i++)
+     
+    i = _assignatedWidgets.begin();
+    while (i != _assignatedWidgets.end())
     {
         // Reset to default state
         (*i)->resetParameters();
@@ -1518,7 +1530,7 @@ static inline const char* transmit_value(int num)
         
         [[NSUserDefaults standardUserDefaults] synchronize];
         
-        _assignatedWidgets.erase(i);
+        i = _assignatedWidgets.erase(i);
     }
     
     [self loadWidgetsPreferences];

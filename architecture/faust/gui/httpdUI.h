@@ -48,6 +48,8 @@
 class httpdUIAux
 {
     public:
+    
+        virtual ~httpdUIAux() {}
 
         virtual bool run()              = 0;
         virtual void stop()             = 0;
@@ -135,6 +137,10 @@ class httpdServerUI : public UI, public httpdUIAux
                                         { fCtrl->addnode("hbargraph", tr(label), zone, min, max); }
         virtual void addVerticalBargraph(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT min, FAUSTFLOAT max)
                                         { fCtrl->addnode("vbargraph", tr(label), zone, min, max); }
+    
+        // -- soundfiles
+    
+        virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
 
         virtual void declare(FAUSTFLOAT*, const char* key, const char* val) { fCtrl->declare(key, val); }
 
@@ -148,7 +154,6 @@ class httpdServerUI : public UI, public httpdUIAux
 
 // API from sourcefetcher.hh and compiled in libHTTPDFaust library.
 int http_fetch(const char *url, char **fileBuf);
-
 
 /*
 Use to control a running Faust DSP wrapped with "httpdServerUI".

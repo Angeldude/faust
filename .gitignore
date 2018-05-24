@@ -1,3 +1,8 @@
+dox/*
+build/bin/*
+build/lib/*
+*~
+compile.sh
 *.aux
 *.log
 *.out
@@ -11,6 +16,12 @@
 .DS_Store
 *tmp*
 *dir*
+windows/_output/
+windows/.vs/
+windows/*.*db
+windows/*.user
+*.opensdf
+*.sdf
 compiler/faust
 ### VSCode cache
 .*.VC.db
@@ -19,3 +30,4 @@ compiler/faust
 !*.xcodeproj/project.pbxproj
 !*.xcodeproj/xcshareddata/
 !*.xcworkspace/contents.xcworkspacedata
+tests/impulse-tests/ir

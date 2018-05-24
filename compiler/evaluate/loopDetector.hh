@@ -23,8 +23,6 @@
 #ifndef __LOOPDETECTOR__
 #define __LOOPDETECTOR__
  
- 
- 
 /** 						
  * \file loopDetector.hh 
  *
@@ -33,12 +31,10 @@
  *
  **/
  
- 
-
 #include "boxes.hh"
 #include "sourcereader.hh"
 
-class loopDetector
+class loopDetector : public virtual Garbageable
 {
 		const int		fBuffersize;
 		const int		fCheckperiod;
@@ -50,7 +46,6 @@ class loopDetector
 		bool 	detect 	(Tree t);
 		
 };
-
 
 #endif
 

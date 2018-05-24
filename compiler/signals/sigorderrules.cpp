@@ -36,7 +36,6 @@
  ************************************************************************
  ************************************************************************/
  
- 
 #include <stdio.h>
 #include "sigtype.hh"
 #include "sigprint.hh"
@@ -44,8 +43,8 @@
 #include "tlib.hh"
 #include "sigorderrules.hh"
 #include "xtended.hh"
-
-Tree ORDERPROP = tree(symbol("OrderProp"));
+#include "exception.hh"
+#include "global.hh"
 
 static int infereSigOrder(Tree sig);
 
@@ -62,19 +61,17 @@ static int infereSigOrder(Tree sig);
 int getSigOrder(Tree sig)
 {
 	Tree tt;
-	if (getProperty(sig, ORDERPROP, tt)) { 
+	if (getProperty(sig, gGlobal->ORDERPROP, tt)) { 
 		return tree2int(tt); 
 	} else {
 		int order = infereSigOrder(sig);
-		setProperty(sig, ORDERPROP, tree(order));
+		setProperty(sig, gGlobal->ORDERPROP, tree(order));
 		return order;
 	}
 }	
 
 // shortcut for order inference algorithm
 #define O getSigOrder
-
-
 
 /**
  * Infere the order of a term according to its components
@@ -85,7 +82,7 @@ static int infereSigOrder(Tree sig)
 {
 	int 		i;
 	double 		r;
-    Tree		sel, s1, s2, s3, s4, ff, id, ls, l, x, y, var, body, type, name, file;
+    Tree		sel, s1, s2, s3, s4, ff, id, ls, l, x, y, var, body, type, name, file, sf;
 
 	xtended* xt = (xtended*) getUserData(sig);
 	// primitive elements
@@ -96,7 +93,6 @@ static int infereSigOrder(Tree sig)
 		for (int i=0; i<sig->arity(); i++) { args.push_back( O(sig->branch(i)) ); }
 		return xt->infereSigOrder(args);
 	}
-
 	
 	else if (isSigInt(sig, &i))					return 0;
 		
@@ -140,13 +136,27 @@ static int infereSigOrder(Tree sig)
 		
 	else if (isSigHBargraph(sig, l, x, y, s1)) 	return max(2,O(s1)); 	// at least a user interface
 		
-	else if (isSigVBargraph(sig, l, x, y, s1))	return max(2, O(s1)); 	// at least a user interface
+	else if (isSigVBargraph(sig, l, x, y, s1)) 	return max(2,O(s1)); 	// at least a user interface
+	
+    else if (isSigEnable(sig, s1, s2)) 			return O(s1);
+
+    else if (isSigControl(sig, s1, s2)) 		return O(s1);
+
+    else if (isSigSoundfile(sig, l))			throw faustexception("ERROR infering signal order : isSigSoundfile\n");	// not supposed to happen.;
+    
+	else if (isSigSoundfileLength(sig, sf))     return 2;
+    
+    else if (isSigSoundfileRate(sig, sf))	    return 2;
+
+    else if (isSigSoundfileChannels(sig, sf))	return 2;
+
+    else if (isSigSoundfileBuffer(sig,sf,x,y))  return 3;
 
 	else if (isSigAttach(sig, s1, s2)) 			return max(1,O(s1));	// at least a constant
 				
-	else if (isRec(sig, var, body))				exit(1); //return 3;  // not supposed to happen.
+	else if (isRec(sig, var, body))				throw faustexception("ERROR infering signal order : isRec\n"); //return 3;  // not supposed to happen.
 				
-	else if (isRef(sig, var))					exit(1); //return 3;  // not supposed to happen. 
+	else if (isRef(sig, var))					throw faustexception("ERROR infering signal order : isRef\n"); //return 3;  // not supposed to happen. 
 
 	else if (isProj(sig, &i, s1))				return 3;
 	                                                	
@@ -176,8 +186,6 @@ static int infereSigOrder(Tree sig)
 	}
 	
 	// unrecognized signal here
-	fprintf(stderr, "ERROR inferring signal order : unrecognized signal  : "); print(sig, stderr); fprintf(stderr, "\n");
-	exit(1);
-	return 0;
+    throw faustexception("ERROR inferring signal order : unrecognized signal\n");
 }
 

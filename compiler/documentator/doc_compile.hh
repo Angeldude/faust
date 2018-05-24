@@ -19,11 +19,8 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #ifndef _DOC_COMPILE_SCAL_
 #define _DOC_COMPILE_SCAL_
-
 
 #include <string>
 #include <list>
@@ -37,7 +34,7 @@
 #include "Text.hh"
 #include "doc_Text.hh"
 #include "description.hh"
-
+#include "garbageable.hh"
 
 ///////////////////////////////////////////////////////////////////////
 /**
@@ -45,7 +42,7 @@
  */
 ///////////////////////////////////////////////////////////////////////
 
-class DocCompiler
+class DocCompiler : public virtual Garbageable
 {
   protected:
 	
@@ -55,36 +52,30 @@ class DocCompiler
 	Lateq*			fLateq;
 	Description*	fDescription;
 
-	static map<string, int>		fIDCounters;
 	Tree                      	fSharingKey;
-	OccMarkup					fOccMarkup;
+    OccMarkup					fOccMarkup;
 	int							fPriority;	///< math priority context
-
 
   public:
 
 	DocCompiler (int numInputs, int numOutputs) 
-	:
-	fLateq(new Lateq(numInputs, numOutputs)),
-	fDescription(0), 
-	fPriority(0)
+	:fLateq(new Lateq(numInputs, numOutputs)),
+        fDescription(0), 
+        fPriority(0)
 	{}
 	
 	DocCompiler ( Lateq* k, int priority) 
-	: 
-	fLateq(k),
-	fDescription(0), 
-	fPriority(priority)
+	:fLateq(k), fDescription(0), fPriority(priority)
 	{}
 	
-	~DocCompiler()
+	virtual ~DocCompiler()
 	{}
 	
 	Lateq*			compileLateq (Tree L, Lateq* compiledEqn);
 	Tree			annotate(Tree L0);	
 	
 	Lateq*			getLateq()							{ return (Lateq*)fLateq; }
-	void			setDescription(Description* descr)	{ fDescription= descr; }
+	void			setDescription(Description* descr)	{ fDescription = descr; }
 	Description*	getDescription()					{ return fDescription; }
 	
 	
@@ -148,7 +139,7 @@ class DocCompiler
 	string 		generateVBargraph 	(Tree sig, Tree label, Tree min, Tree max, const string& exp);
 	string 		generateHBargraph	(Tree sig, Tree label, Tree min, Tree max, const string& exp);
 	string		generateAttach		(Tree sig, Tree x, Tree y, int priority);
-
+    string      generateEnable        (Tree sig, Tree arg1, Tree arg2, int priority);
 	string		generateNumber(Tree sig, const string& exp);
     string      generateFConst (Tree sig, const string& file, const string& name);
     string      generateFVar (Tree sig, const string& file, const string& name);

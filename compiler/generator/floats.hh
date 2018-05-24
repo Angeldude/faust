@@ -1,7 +1,7 @@
 /************************************************************************
  ************************************************************************
     FAUST compiler
-	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
     ---------------------------------------------------------------------
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,23 +19,34 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #ifndef _FAUSTFLOATS_
 #define _FAUSTFLOATS_
 
 #include <iostream>
 
+#include "instructions.hh"
+#include "global.hh"
+
+#define FLOATMACRO "FAUSTFLOAT"
+#define FLOATMACROPTR "FAUSTFLOAT*"
+#define FLOATCASTER "(" FLOATMACRO ")"
+
 const char* isuffix();
 const char* inumix();
-const char* inummin();
+double inummin();
 
 const char* ifloat();
+Typed::VarType itfloat();
+Typed::VarType itfloatptr();
 const char* icast();
 
 const char* xfloat();
 const char* xcast();
 
-void printfloatdef(std::ostream& fout);
+inline int audioSampleSize() { return int(pow(2.f, float(gGlobal->gFloatSize + 1))); }
+
+void printfloatdef(std::ostream& fout, bool quad);
+
+typedef long double quad;
 
 #endif

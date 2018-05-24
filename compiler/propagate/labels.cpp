@@ -1,5 +1,27 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 #include "labels.hh"
 #include "compatibility.hh"
+#include "global.hh"
 
 //=========================== PATHNAME ===============================
 
@@ -16,18 +38,14 @@
  *
  */
 
-Sym PATHROOT = symbol ("/");
-Tree pathRoot()						{ return tree(PATHROOT); }
-bool isPathRoot(Tree t)				{ return isTree(t, PATHROOT); }
+Tree pathRoot()						{ return tree(gGlobal->PATHROOT); }
+bool isPathRoot(Tree t)				{ return isTree(t, gGlobal->PATHROOT); }
 
-Sym PATHPARENT = symbol ("..");
-Tree pathParent()					{ return tree(PATHPARENT); }
-bool isPathParent(Tree t)			{ return isTree(t, PATHPARENT); }
+Tree pathParent()					{ return tree(gGlobal->PATHPARENT); }
+bool isPathParent(Tree t)			{ return isTree(t, gGlobal->PATHPARENT); }
 
-Sym PATHCURRENT = symbol (".");
-Tree pathCurrent()					{ return tree(PATHCURRENT); }
-bool isPathCurrent(Tree t)			{ return isTree(t, PATHCURRENT); }
-
+Tree pathCurrent()					{ return tree(gGlobal->PATHCURRENT); }
+bool isPathCurrent(Tree t)			{ return isTree(t, gGlobal->PATHCURRENT); }
 
 
 /**
@@ -58,7 +76,7 @@ static Tree encodeName(char g, const string& name)
 static Tree label2path(const char* label)
 {
     if (label[0] == 0) {
-        return cons(tree(""), nil);
+        return cons(tree(""), gGlobal->nil);
 
     } else if (label[0] == '/') {
         return cons(pathRoot(), label2path(&label[1]));
@@ -81,7 +99,7 @@ static Tree label2path(const char* label)
         return cons(encodeName(g,s), label2path(&label[i]));
 
     } else {
-        return cons(tree(label),nil);
+        return cons(tree(label),gGlobal->nil);
     }
 }
 
@@ -97,7 +115,7 @@ static Tree concatPath(Tree relpath, Tree abspath)
 	if (isList(relpath)) {
 		Tree head = hd(relpath);
 		if (isPathRoot(head)) {
-			return concatPath(tl(relpath), nil);
+			return concatPath(tl(relpath), gGlobal->nil);
 		} else if (isPathParent(head)) {
 			if (!isList(abspath)) { 
 				//cerr << "abspath : " << *abspath << endl; 
@@ -111,7 +129,7 @@ static Tree concatPath(Tree relpath, Tree abspath)
 			return concatPath(tl(relpath), cons(head,abspath));
 		}
 	} else {
-		assert(isNil(relpath));
+		faustassert(isNil(relpath));
 		return abspath;
 	}
 }
@@ -124,9 +142,10 @@ static Tree normalizeLabel(Tree label, Tree path)
 	if (isList(label)) {
 		return cons(label, path);
 	} else {
-		Sym s;
-		assert (isSym(label->node(),&s));
-		return concatPath(label2path(name(s)),path);
+        Sym s;
+        bool is_sym = isSym(label->node(),&s);
+        faustassert(is_sym);
+        return concatPath(label2path(name(s)),path);
 	}
 }
 

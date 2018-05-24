@@ -45,12 +45,16 @@
 #include "faust/gui/console.h"
 #include "faust/audio/jack-dsp.h"
 
+#ifdef HTTPCTRL
+#include "faust/gui/httpdUI.h"
+#endif
+
 #ifdef OSCCTRL
 #include "faust/gui/OSCUI.h"
 #endif
 
-#ifdef HTTPCTRL
-#include "faust/gui/httpdUI.h"
+#ifdef SOUNDFILE
+#include "faust/gui/SoundUI.h"
 #endif
 
 /******************************************************************************
@@ -70,6 +74,7 @@
 /*******************BEGIN ARCHITECTURE SECTION (part 2/2)***************/
 					
 mydsp DSP;
+
 std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 
@@ -78,59 +83,52 @@ ztimedmap GUI::gTimedZoneMap;
 //-------------------------------------------------------------------------
 int main(int argc, char *argv[] )
 {
-	char appname[256];
+    char appname[256];
     char rcfilename[256];
     char* home = getenv("HOME");
-    
-	snprintf(appname, 255, "%s", basename(argv[0]));
-    snprintf(rcfilename, 255, "%s/.%src", home, appname);
 
-	CMDUI* interface = new CMDUI(argc, argv);
-    FUI* finterface	= new FUI();
-	DSP.buildUserInterface(interface);
-	DSP.buildUserInterface(finterface);
+    snprintf(appname, 256, "%s", basename(argv[0]));
+    snprintf(rcfilename, 256, "%s/.%src", home, appname);
 
+    CMDUI interface(argc, argv);
+    FUI finterface;
+
+#ifdef SOUNDFILE
+    SoundUI soundinterface;
+    DSP->buildUserInterface(&soundinterface);
+#endif
+    DSP.buildUserInterface(&interface);
+    DSP.buildUserInterface(&finterface);
+ 
 #ifdef OSCCTRL
-	GUI* oscinterface = new OSCUI(appname, argc, argv);
-	DSP.buildUserInterface(oscinterface);
+    OSCUI oscinterface(appname, argc, argv);
+    DSP.buildUserInterface(&oscinterface);
 #endif
 
 #ifdef HTTPCTRL
-	httpdUI* httpdinterface = new httpdUI(appname, DSP.getNumInputs(), DSP.getNumOutputs(), argc, argv);
-	DSP.buildUserInterface(httpdinterface);
- #endif
+    httpdUI httpdinterface(appname, DSP.getNumInputs(), DSP.getNumOutputs(), argc, argv);
+    DSP.buildUserInterface(&httpdinterface);
+#endif
 
-	jackaudio audio;
-	audio.init(appname, &DSP);
-	interface->process_command();
-	audio.start();
+    jackaudio audio;
+    audio.init(appname, &DSP);
+    interface.process_command();
+    audio.start();
 
 #ifdef HTTPCTRL
-	httpdinterface->run();
-#endif	
-	
+    httpdinterface.run();
+#endif
+
 #ifdef OSCCTRL
-	oscinterface->run();
+    oscinterface.run();
 #endif
-	interface->run();
-	
-	audio.stop();
-    finterface->saveState(rcfilename);
-    
-    // desallocation
-    delete interface;
-    delete finterface;
-#ifdef HTTPCTRL
-	 delete httpdinterface;
-#endif
-#ifdef OSCCTRL
-	 delete oscinterface;
-#endif
+    interface.run();
 
-	return 0;
-} 
+    audio.stop();
+    finterface.saveState(rcfilename);
 
+    return 0;
+}
 
-		
 /********************END ARCHITECTURE SECTION (part 2/2)****************/
 

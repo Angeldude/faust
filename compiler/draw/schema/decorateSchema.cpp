@@ -19,9 +19,11 @@
  ************************************************************************
  ************************************************************************/
 
-#include "decorateSchema.h"
 #include <iostream>
-#include <assert.h>
+#include <algorithm>
+
+#include "decorateSchema.h"
+#include "exception.hh"
 
 using namespace std;
 
@@ -85,8 +87,8 @@ void decorateSchema::place(double ox, double oy, int orientation)
  */
 point decorateSchema::inputPoint(unsigned int i) const
 {
-	assert (placed());
-	assert (i < inputs());
+	faustassert(placed());
+	faustassert(i < inputs());
 	return fInputPoint[i];
 }
 
@@ -95,8 +97,8 @@ point decorateSchema::inputPoint(unsigned int i) const
  */
 point decorateSchema::outputPoint(unsigned int i) const
 {
-	assert (placed());
-	assert (i < outputs());
+	faustassert(placed());
+	faustassert(i < outputs());
 	return fOutputPoint[i];
 }
 
@@ -106,7 +108,7 @@ point decorateSchema::outputPoint(unsigned int i) const
  */
 void decorateSchema::draw(device& dev)
 {
-    assert(placed());
+    faustassert(placed());
 
     fSchema->draw(dev);
 #if 0
@@ -151,7 +153,7 @@ void decorateSchema::draw(device& dev)
  */
 void decorateSchema::collectTraits(collector& c)
 {
-    assert(placed());
+    faustassert(placed());
 
     fSchema->collectTraits(c);
 

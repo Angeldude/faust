@@ -19,17 +19,18 @@
  ************************************************************************
  ************************************************************************/
 
-#ifndef __OCCURENCES__
-#define __OCCURENCES__
+#ifndef __OCCURRENCES__
+#define __OCCURRENCES__
 
 #include "tlib.hh"
+#include "garbageable.hh"
 
 /**
  * Count subtree occurences
  * Count the number of occurences of each subtree of a root tree.
  */
 
-class Occurrences
+class Occurrences : public virtual Garbageable
 {
 	Tree	fKey;					// specific property key
 

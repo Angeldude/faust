@@ -19,11 +19,8 @@
  ************************************************************************
  ************************************************************************/
 
-
-
  /**********************************************************************
 			- klass.cpp : class C++ a remplir (projet FAUST) -
-
 
 		Historique :
 		-----------
@@ -50,27 +47,7 @@
 #include "ppsig.hh"
 #include "recursivness.hh"
 
-
-extern int  gFloatSize;
-extern bool gVectorSwitch;
-extern bool gDeepFirstSwitch;
-extern bool gOpenMPSwitch;
-extern bool gOpenMPLoop;
-extern bool gSchedulerSwitch;
-extern int  gVecSize;
-extern bool gUIMacroSwitch;
-extern int  gVectorLoopVariant;
-extern bool	gGroupTaskSwitch;
-extern bool	gMemoryManager;
-
-extern map<Tree, set<Tree> > gMetaDataSet;
 static int gTaskCount = 0;
-
-void tab (int n, ostream& fout)
-{
-	fout << '\n';
-	while (n--)	fout << '\t';
-}
 
 bool Klass::fNeedPowerDef = false;
 
@@ -87,7 +64,7 @@ void Klass::setLoopProperty(Tree sig, Loop* l)
  */
 bool Klass::getLoopProperty(Tree sig, Loop*& l)
 {
-    return  fLoopProperty.get(sig, l);
+    return fLoopProperty.get(sig, l);
 }
 
 /**
@@ -117,10 +94,10 @@ void Klass::openLoop(Tree recsymbol, const string& size)
  */
 void Klass::closeLoop(Tree sig)
 {
-    assert(fTopLoop);
+    faustassert(fTopLoop);
     Loop* l = fTopLoop;
     fTopLoop = l->fEnclosingLoop;
-    assert(fTopLoop);
+    faustassert(fTopLoop);
 
     //l->println(4, cerr);
     //cerr << endl;
@@ -146,17 +123,6 @@ void Klass::closeLoop(Tree sig)
         }
     }
     //cerr << "\n" << endl;
-}
-
-/**
- * Print a list of lines.
- */
-void printlines(int n, list<string>& lines, ostream& fout)
-{
-    list<string>::iterator s;
-    for (s = lines.begin(); s != lines.end(); s++) {
-        tab(n, fout); fout << *s;
-    }
 }
 
 /**
@@ -202,7 +168,7 @@ void Klass::printIncludeFile(ostream& fout)
     set<string> S;
     set<string>::iterator f;
 
-    if (gOpenMPSwitch) {
+    if (gGlobal->gOpenMPSwitch) {
         fout << "#include <omp.h>" << "\n";
     }
 
@@ -232,21 +198,21 @@ void Klass::printAdditionalCode(ostream& fout)
         fout << "template <> 	 inline int faustpower<1>(int x)            { return x; }" << endl;
         fout << "template <> 	 inline int faustpower<2>(int x)            { return x*x; }" << endl;
         
-        if (gFloatSize==1) {
+        if (gGlobal->gFloatSize == 1) {
             
             fout << "template <int N> inline float faustpower(float x)            { return faustpower<N/2>(x) * faustpower<N-N/2>(x); } " << endl;
             fout << "template <> 	 inline float faustpower<0>(float x)          { return 1; }" << endl;
             fout << "template <> 	 inline float faustpower<1>(float x)          { return x; }" << endl;
             fout << "template <> 	 inline float faustpower<2>(float x)          { return x*x; }" << endl;
             
-        } else if (gFloatSize==2) {
+        } else if (gGlobal->gFloatSize == 2) {
         
             fout << "template <int N> inline double faustpower(double x)          { return faustpower<N/2>(x) * faustpower<N-N/2>(x); } " << endl;
             fout << "template <> 	 inline double faustpower<0>(double x)        { return 1; }" << endl;
             fout << "template <> 	 inline double faustpower<1>(double x)        { return x; }" << endl;
             fout << "template <> 	 inline double faustpower<2>(double x)        { return x*x; }" << endl;
             
-        } else if (gFloatSize==3) {
+        } else if (gGlobal->gFloatSize == 3) {
             
             fout << "template <int N> inline long double faustpower(long double x){ return powl(x,N); }"  << endl;
             
@@ -254,18 +220,17 @@ void Klass::printAdditionalCode(ostream& fout)
         fout << "#endif" << endl;
 
     }
-
 }
 
 /**
  * Print metadata declaration
  */
-void Klass::printMetadata(int n, const map<Tree, set<Tree> >& S, ostream& fout)
+void Klass::printMetadata(int n, const MetaDataSet& S, ostream& fout)
 {
     tab(n,fout); fout << "virtual void metadata(Meta* m) { ";
     
     // We do not want to accumulate metadata from all hierachical levels, so the upper level only is kept
-    for (map<Tree, set<Tree> >::iterator i = gMetaDataSet.begin(); i != gMetaDataSet.end(); i++) {
+    for (MetaDataSet::iterator i = gGlobal->gMetaDataSet.begin(); i != gGlobal->gMetaDataSet.end(); i++) {
         if (i->first != tree("author")) {
             tab(n+1,fout); fout << "m->declare(\"" << *(i->first) << "\", " << **(i->second.begin()) << ");";
         } else {
@@ -359,7 +324,7 @@ void Klass::buildTasksList()
 {
     lgraph G;
 
-    if (gGroupTaskSwitch) {
+    if (gGlobal->gGroupTaskSwitch) {
         computeUseCount(fTopLoop);
         set<Loop*> visited;
         groupSeqLoops(fTopLoop, visited);
@@ -477,7 +442,7 @@ void Klass::buildTasksList()
  */
 void Klass::printLoopGraphVector(int n, ostream& fout)
 {
-    if (gGroupTaskSwitch) {
+    if (gGlobal->gGroupTaskSwitch) {
         computeUseCount(fTopLoop);
         set<Loop*> visited;
         groupSeqLoops(fTopLoop, visited);
@@ -488,7 +453,7 @@ void Klass::printLoopGraphVector(int n, ostream& fout)
 
 #if 1
     // EXPERIMENTAL
-    if (gVectorSwitch && gDeepFirstSwitch) {
+    if (gGlobal->gVectorSwitch && gGlobal->gDeepFirstSwitch) {
         set<Loop*> visited;
         printLoopDeepFirst(n, fout, fTopLoop, visited);
         return;
@@ -497,7 +462,7 @@ void Klass::printLoopGraphVector(int n, ostream& fout)
 
     // normal mode
     for (int l=(int)G.size()-1; l>=0; l--) {
-        if (gVectorSwitch) { tab(n, fout); fout << "// SECTION : " << G.size() - l; }
+        if (gGlobal->gVectorSwitch) { tab(n, fout); fout << "// SECTION : " << G.size() - l; }
         for (lset::const_iterator p =G[l].begin(); p!=G[l].end(); p++) {
             (*p)->println(n, fout);
         }
@@ -509,7 +474,7 @@ void Klass::printLoopGraphVector(int n, ostream& fout)
  */
 void Klass::printLoopGraphOpenMP(int n, ostream& fout)
 {
-    if (gGroupTaskSwitch) {
+    if (gGlobal->gGroupTaskSwitch) {
         computeUseCount(fTopLoop);
         set<Loop*> visited;
         groupSeqLoops(fTopLoop, visited);
@@ -530,7 +495,7 @@ void Klass::printLoopGraphOpenMP(int n, ostream& fout)
  */
 void Klass::printLoopGraphScheduler(int n, ostream& fout)
 {
-    if (gGroupTaskSwitch) {
+    if (gGlobal->gGroupTaskSwitch) {
         computeUseCount(fTopLoop);
         set<Loop*> visited;
         groupSeqLoops(fTopLoop, visited);
@@ -547,7 +512,6 @@ void Klass::printLoopGraphScheduler(int n, ostream& fout)
 
     printLastLoopLevelScheduler(n, (int)G.size(), G[0], fout);
 }
-
 
 /**
  * Print the loop graph in dot format
@@ -588,7 +552,7 @@ void Klass::printLoopGraphInternal(int n, ostream& fout)
 
     // normal mode
     for (int l=(int)G.size()-1; l>=0; l--) {
-        if (gVectorSwitch) { tab(n, fout); fout << "// SECTION : " << G.size() - l; }
+        if (gGlobal->gVectorSwitch) { tab(n, fout); fout << "// SECTION : " << G.size() - l; }
         for (lset::const_iterator p =G[l].begin(); p!=G[l].end(); p++) {
             (*p)->printoneln(n, fout);
         }
@@ -623,7 +587,7 @@ void Klass::printLoopLevelOpenMP(int n, int lnum, const lset& L, ostream& fout)
     if (nonRecursiveLevel(L) && L.size()==1) {
         for (lset::const_iterator p =L.begin(); p!=L.end(); p++) {
             if ((*p)->isEmpty() == false) {
-                if (gOpenMPLoop) {
+                if (gGlobal->gOpenMPLoop) {
                     (*p)->printParLoopln(n, fout);
                 } else {
                     tab(n, fout); fout << "#pragma omp single ";
@@ -775,13 +739,13 @@ void Klass::println(int n, ostream& fout)
     fout << "#define FAUSTCLASS "<< fKlassName << endl;
     fout << "#endif" << endl;
 
-    if (gSchedulerSwitch) {
+    if (gGlobal->gSchedulerSwitch) {
         tab(n,fout); fout << "class " << fKlassName << " : public " << fSuperKlassName << ", public Runnable {";
     } else {
         tab(n,fout); fout << "class " << fKlassName << " : public " << fSuperKlassName << " {";
     }
 
-    if (gUIMacroSwitch) {
+    if (gGlobal->gUIMacroSwitch) {
         tab(n,fout); fout << "  public:";
     } else {
 	    tab(n,fout); fout << "  private:";
@@ -795,13 +759,13 @@ void Klass::println(int n, ostream& fout)
 
     tab(n,fout); fout << "  public:";
     
-    if (gMemoryManager) {
+    if (gGlobal->gMemoryManager) {
         tab(n+1,fout); fout << "static dsp_memory_manager* fManager;" << endl;
     }
 
-    printMetadata(n+1, gMetaDataSet, fout);
+    printMetadata(n+1, gGlobal->gMetaDataSet, fout);
 
-    if (gSchedulerSwitch) {
+    if (gGlobal->gSchedulerSwitch) {
         tab(n+1,fout); fout << fKlassName << "() { "
                             << "fThreadPool = DSPThreadPool::Init(); }";
         
@@ -818,29 +782,29 @@ void Klass::println(int n, ostream& fout)
                     << "; }";
 
     tab(n+1,fout); fout << "static void classInit(int samplingFreq) {";
-        printlines (n+2, fStaticInitCode, fout);
+        printlines(n+2, fStaticInitCode, fout);
     tab(n+1,fout); fout << "}";
     
-    if (gMemoryManager) {
+    if (gGlobal->gMemoryManager) {
         tab(n+1,fout); fout << "static void classDestroy() {";
-            printlines (n+2, fStaticDestroyCode, fout);
+            printlines(n+2, fStaticDestroyCode, fout);
         tab(n+1,fout); fout << "}";
     }
 
     tab(n+1,fout); fout << "virtual void instanceConstants(int samplingFreq) {";
         tab(n+2,fout); fout << "fSamplingFreq = samplingFreq;";
-        printlines (n+2, fInitCode, fout);
+        printlines(n+2, fInitCode, fout);
     tab(n+1,fout); fout << "}";
     
     tab(n+1,fout); fout << "virtual void instanceResetUserInterface() {";
-        printlines (n+2, fInitUICode, fout);
+        printlines(n+2, fInitUICode, fout);
     tab(n+1,fout); fout << "}";
     
     tab(n+1,fout); fout << "virtual void instanceClear() {";
-        printlines (n+2, fClearCode, fout);
+        printlines(n+2, fClearCode, fout);
     tab(n+1,fout); fout << "}";
 
-    if (gMemoryManager) {
+    if (gGlobal->gMemoryManager) {
         tab(n+1,fout); fout << "virtual void init(int samplingFreq) {}";
     } else {
         tab(n+1,fout); fout << "virtual void init(int samplingFreq) {";
@@ -864,7 +828,7 @@ void Klass::println(int n, ostream& fout)
     tab(n+1,fout); fout << "}";
 
     tab(n+1,fout); fout << "virtual void buildUserInterface(UI* ui_interface) {";
-        printlines (n+2, fUICode, fout);
+        printlines(n+2, fUICode, fout);
     tab(n+1,fout); fout << "}";
 
     printComputeMethod(n, fout);
@@ -873,12 +837,12 @@ void Klass::println(int n, ostream& fout)
 
 	printlines(n, fStaticFields, fout);
     
-    if (gMemoryManager) {
+    if (gGlobal->gMemoryManager) {
         tab(n, fout); fout << "dsp_memory_manager* " << fKlassName <<"::fManager = 0;" << endl;
     }
     
 	// generate user interface macros if needed
-	if (gUIMacroSwitch) {
+	if (gGlobal->gUIMacroSwitch) {
 		tab(n, fout); fout << "#ifdef FAUST_UIMACROS";
             tab(n+1,fout); fout << "#define FAUST_INPUTS " << fNumInputs;
             tab(n+1,fout); fout << "#define FAUST_OUTPUTS " << fNumOutputs;
@@ -896,15 +860,19 @@ void Klass::println(int n, ostream& fout)
  */
 void Klass::printComputeMethod(int n, ostream& fout)
 {
-    if (gSchedulerSwitch) {
+    if (gGlobal->gSchedulerSwitch) {
         printComputeMethodScheduler (n, fout);
-    } else if (gOpenMPSwitch) {
+    } else if (gGlobal->gOpenMPSwitch) {
         printComputeMethodOpenMP (n, fout);
-    } else if (gVectorSwitch) {
-        switch (gVectorLoopVariant) {
+    } else if (gGlobal->gVectorSwitch) {
+        switch (gGlobal->gVectorLoopVariant) {
             case 0 : printComputeMethodVectorFaster(n, fout); break;
             case 1 : printComputeMethodVectorSimple(n, fout); break;
-            default : cerr << "unknown loop variant " << gVectorLoopVariant << endl; exit(1);
+            default : {
+                stringstream error;
+                error << "ERROR : unknown loop variant"  << gGlobal->gVectorLoopVariant << endl;
+                throw faustexception(error.str());
+            }
         }
    } else {
         printComputeMethodScalar(n, fout);
@@ -914,11 +882,17 @@ void Klass::printComputeMethod(int n, ostream& fout)
 void Klass::printComputeMethodScalar(int n, ostream& fout)
 {
     tab(n+1,fout); fout << subst("virtual void compute (int count, $0** input, $0** output) {", xfloat());
-        printlines (n+2, fZone1Code, fout);
-        printlines (n+2, fZone2Code, fout);
-        printlines (n+2, fZone2bCode, fout);
-        printlines (n+2, fZone3Code, fout);
+        tab(n+2,fout); fout << "//zone1";
+        printlines(n+2, fZone1Code, fout);
+        tab(n+2,fout); fout << "//zone2";
+        printlines(n+2, fZone2Code, fout);
+        tab(n+2,fout); fout << "//zone2b";
+        printlines(n+2, fZone2bCode, fout);
+        tab(n+2,fout); fout << "//zone3";
+        printlines(n+2, fZone3Code, fout);
+        tab(n+2,fout); fout << "//LoopGraphScalar";
         printLoopGraphScalar (n+2,fout);
+        printlines(n+2, fZone4Code, fout);
     tab(n+1,fout); fout << "}";
 }
 
@@ -939,19 +913,21 @@ void Klass::printComputeMethodVectorFaster(int n, ostream& fout)
         tab(n+2,fout); fout << "int index;";
 		tab(n+2,fout); fout << "int fullcount = count;";
 		
-        tab(n+2,fout); fout << "for (index = 0; index <= fullcount - " << gVecSize << "; index += " << gVecSize << ") {";
-            tab(n+3,fout); fout << "// compute by blocks of " << gVecSize << " samples";
-            tab(n+3,fout); fout << "const int count = " << gVecSize << ";";
-            printlines (n+3, fZone3Code, fout);
+        tab(n+2,fout); fout << "for (index = 0; index <= fullcount - " << gGlobal->gVecSize << "; index += " << gGlobal->gVecSize << ") {";
+            tab(n+3,fout); fout << "// compute by blocks of " << gGlobal->gVecSize << " samples";
+            tab(n+3,fout); fout << "const int count = " << gGlobal->gVecSize << ";";
+            printlines(n+3, fZone3Code, fout);
             printLoopGraphVector(n+3,fout);
         tab(n+2,fout); fout << "}";
 
         tab(n+2,fout); fout << "if (index < fullcount) {";
             tab(n+3,fout); fout << "// compute the remaining samples if any";
             tab(n+3,fout); fout << "int count = fullcount-index;";
-            printlines (n+3, fZone3Code, fout);
+            printlines(n+3, fZone3Code, fout);
              printLoopGraphVector(n+3,fout);
         tab(n+2,fout); fout << "}";
+
+        printlines(n+2, fZone4Code, fout);
     tab(n+1,fout); fout << "}";
 }
 
@@ -968,11 +944,13 @@ void Klass::printComputeMethodVectorSimple(int n, ostream& fout)
         printlines(n+2, fZone2bCode, fout);
 		
         tab(n+2,fout); fout << "int fullcount = count;";
-		tab(n+2,fout); fout << "for (int index = 0; index < fullcount; index += " << gVecSize << ") {";
-            tab(n+3,fout); fout << "int count = min("<< gVecSize << ", fullcount-index);";
-            printlines (n+3, fZone3Code, fout);
+		tab(n+2,fout); fout << "for (int index = 0; index < fullcount; index += " << gGlobal->gVecSize << ") {";
+            tab(n+3,fout); fout << "int count = min("<< gGlobal->gVecSize << ", fullcount-index);";
+            printlines(n+3, fZone3Code, fout);
             printLoopGraphVector(n+3,fout);
         tab(n+2,fout); fout << "}";
+
+        printlines(n+2, fZone4Code, fout);
     tab(n+1,fout); fout << "}";
 }
 
@@ -1050,15 +1028,17 @@ void Klass::printComputeMethodOpenMP(int n, ostream& fout)
                 tab(n+3,fout); fout << "}";
             }
 
-            tab(n+3,fout); fout << "for (int index = 0; index < fullcount; index += " << gVecSize << ") {";
-            tab(n+4,fout); fout << "int count = min ("<< gVecSize << ", fullcount-index);";
+            tab(n+3,fout); fout << "for (int index = 0; index < fullcount; index += " << gGlobal->gVecSize << ") {";
+            tab(n+4,fout); fout << "int count = min ("<< gGlobal->gVecSize << ", fullcount-index);";
 
-            printlines (n+4, fZone3Code, fout);
-            printLoopGraphOpenMP (n+4,fout);
+            printlines(n+4, fZone3Code, fout);
+            printLoopGraphOpenMP(n+4,fout);
 
             tab(n+3,fout); fout << "}";
 
         tab(n+2,fout); fout << "}";
+
+        printlines(n+2, fZone4Code, fout);
     tab(n+1,fout); fout << "}";
 }
 
@@ -1066,13 +1046,13 @@ void Klass::printComputeMethodOpenMP(int n, ostream& fout)
 void Klass::printComputeMethodScheduler (int n, ostream& fout)
 {
     tab(n+1,fout); fout << subst("virtual void compute (int fullcount, $0** input, $0** output) {", xfloat());
-        printlines (n+2, fZone1Code, fout);
-        printlines (n+2, fZone2Code, fout);
+        printlines(n+2, fZone1Code, fout);
+        printlines(n+2, fZone2Code, fout);
 
         // Init input and output
         tab(n+2,fout); fout << "// Init input and output";
-        printlines (n+2, fZone3aCode, fout);
-        printlines (n+2, fZone3bCode, fout);
+        printlines(n+2, fZone3aCode, fout);
+        printlines(n+2, fZone3bCode, fout);
 
         tab(n+2,fout); fout << "// Init graph state";
         tab(n+2,fout); fout << "initState(fTasksList);";
@@ -1099,7 +1079,7 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
 
                             // Input task
                             tab(n+7, fout); fout << "case " << gTaskCount++ << ": { ";
-                            printlines (n+8, fZone6Code, fout);
+                            printlines(n+8, fZone6Code, fout);
                             tab(n+8, fout); fout << "index_in += count;";
                             tab(n+8, fout); fout << "last_cycle_for_thread = (index_in > fullcount);";
                             tab(n+8, fout); fout << "break;";
@@ -1107,7 +1087,7 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
 
                             // Output task
                             tab(n+7, fout); fout << "case " << gTaskCount++ << ": { ";
-                            printlines (n+8, fZone7Code, fout);
+                            printlines(n+8, fZone7Code, fout);
                             tab(n+8, fout); fout << "index_out += count;";
                             tab(n+8, fout); fout << "last_cycle_for_thread = (index_out > fullcount);";
                             tab(n+8, fout); fout << "break;";
@@ -1148,11 +1128,11 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
         
         tab(n+2,fout); fout << "int fullcount = count;";
 
-        tab(n+2,fout); fout << "for (fIndex = 0; fIndex < fullcount; fIndex += " << gVecSize << ") {";
+        tab(n+2,fout); fout << "for (fIndex = 0; fIndex < fullcount; fIndex += " << gGlobal->gVecSize << ") {";
 
-        tab(n+3,fout); fout << "fCount = min ("<< gVecSize << ", fullcount-fIndex);";
+        tab(n+3,fout); fout << "fCount = min ("<< gGlobal->gVecSize << ", fullcount-fIndex);";
         tab(n+3,fout); fout << "TaskQueue::Init();";
-        printlines (n+3, fZone2cCode, fout);
+        printlines(n+3, fZone2cCode, fout);
 
         tab(n+3,fout); fout << "fIsFinished = false;";
         tab(n+3,fout); fout << "fThreadPool->SignalAll(fDynamicNumThreads - 1, this);";
@@ -1169,8 +1149,8 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
     
         tab(n+2,fout); fout << "int count = fCount;";
         
-        printlines (n+2, fZone1Code, fout);
-        printlines (n+2, fZone2Code, fout);
+        printlines(n+2, fZone1Code, fout);
+        printlines(n+2, fZone2Code, fout);
 
         tab(n+2,fout); fout << "// Init graph state";
 
@@ -1180,7 +1160,7 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
     
             // Init input and output
             tab(n+3,fout); fout << "// Init input and output";
-            printlines (n+3, fZone3Code, fout);
+            printlines(n+3, fZone3Code, fout);
 
             tab(n+3,fout); fout << "while (!fIsFinished) {";
                  tab(n+4,fout); fout << "switch (tasknum) {";
@@ -1200,7 +1180,7 @@ void Klass::printComputeMethodScheduler (int n, ostream& fout)
                     gTaskCount = START_TASK_INDEX;
 
                     // DSP tasks
-                    printLoopGraphScheduler (n+5,fout);
+                    printLoopGraphScheduler(n+5,fout);
 
                  tab(n+4,fout); fout << "}";
             tab(n+3,fout); fout << "}";
@@ -1226,9 +1206,9 @@ void SigIntGenKlass::println(int n, ostream& fout)
 
 	tab(n,fout); fout << "  public:";
 
-		tab(n+1,fout); fout 	<< "int getNumInputs() { "
+		tab(n+1,fout); fout << "int getNumInputs() { "
 						<< "return " << fNumInputs << "; }";
-		tab(n+1,fout); fout 	<< "int getNumOutputs() { "
+		tab(n+1,fout); fout << "int getNumOutputs() { "
 						<< "return " << fNumOutputs << "; }";
 
 		tab(n+1,fout); fout << "void init(int samplingFreq) {";
@@ -1238,10 +1218,10 @@ void SigIntGenKlass::println(int n, ostream& fout)
 		tab(n+1,fout); fout << "}";
 
 		tab(n+1,fout); fout << "void fill (int count, int output[]) {";
-            printlines (n+2, fZone1Code, fout);
-            printlines (n+2, fZone2Code, fout);
-            printlines (n+2, fZone2bCode, fout);
-            printlines (n+2, fZone3Code, fout);
+            printlines(n+2, fZone1Code, fout);
+            printlines(n+2, fZone2Code, fout);
+            printlines(n+2, fZone2bCode, fout);
+            printlines(n+2, fZone3Code, fout);
             printLoopGraphInternal (n+2,fout);
 		tab(n+1,fout); fout << "}";
 
@@ -1266,9 +1246,9 @@ void SigFloatGenKlass::println(int n, ostream& fout)
 
 	tab(n,fout); fout << "  public:";
 
-		tab(n+1,fout); fout 	<< "int getNumInputs() { "
+		tab(n+1,fout); fout << "int getNumInputs() { "
 						<< "return " << fNumInputs << "; }";
-		tab(n+1,fout); fout 	<< "int getNumOutputs() { "
+		tab(n+1,fout); fout << "int getNumOutputs() { "
 						<< "return " << fNumOutputs << "; }";
 
 		tab(n+1,fout); fout << "void init(int samplingFreq) {";
@@ -1278,10 +1258,10 @@ void SigFloatGenKlass::println(int n, ostream& fout)
 		tab(n+1,fout); fout << "}";
 
 		tab(n+1,fout); fout << subst("void fill (int count, $0 output[]) {", ifloat());
-            printlines (n+2, fZone1Code, fout);
-            printlines (n+2, fZone2Code, fout);
-            printlines (n+2, fZone2bCode, fout);
-            printlines (n+2, fZone3Code, fout);
+            printlines(n+2, fZone1Code, fout);
+            printlines(n+2, fZone2Code, fout);
+            printlines(n+2, fZone2bCode, fout);
+            printlines(n+2, fZone3Code, fout);
             printLoopGraphInternal(n+2,fout);
  		tab(n+1,fout); fout << "}";
 
@@ -1296,7 +1276,7 @@ static void merge (set<string>& dst, set<string>& src)
 
 void Klass::collectIncludeFile(set<string>& S)
 {
-	list<Klass* >::iterator 	k;
+	list<Klass* >::iterator k;
 
 	for (k = fSubClassList.begin(); k != fSubClassList.end(); k++) 	(*k)->collectIncludeFile(S);
 	merge(S, fIncludeFileSet);
@@ -1304,7 +1284,7 @@ void Klass::collectIncludeFile(set<string>& S)
 
 void Klass::collectLibrary(set<string>& S)
 {
-	list<Klass* >::iterator 	k;
+	list<Klass* >::iterator k;
 
 	for (k = fSubClassList.begin(); k != fSubClassList.end(); k++) 	(*k)->collectLibrary(S);
 	merge(S, fLibrarySet);

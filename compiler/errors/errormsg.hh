@@ -18,18 +18,14 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  ************************************************************************
  ************************************************************************/
- 
- 
- 
+
 #ifndef _ERRORMSG_
 #define _ERRORMSG_
 
 #include "tlib.hh"
 
-
-extern int 			yylineno;
-extern const char * yyfilename;
-extern int 			gErrorCount;
+extern int yylineno;
+extern const char* yyfilename;
 
 // associate and retrieve file and line properties to a symbol definition
 void 		setDefProp(Tree sym, const char* filename, int lineno);
@@ -44,6 +40,7 @@ const char* getUseFileProp(Tree sym);
 int 		getUseLineProp(Tree sym);
 
 // Parsing error
+void 		lexerror(const char* msg);
 void 		yyerror(const char* msg);
 
 // three levels or errors, warnings and remarks are provided during evaluation

@@ -19,10 +19,10 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include <stdio.h>
-#include <assert.h>
+#include <map>
+
+#include "exception.hh"
 #include "list.hh"
 #include "signals.hh"
 #include "sigtype.hh"
@@ -34,24 +34,22 @@
 #include "simplify.hh"
 #include "num.hh"
 #include "xtended.hh"
-#include <map>
 #include "compatibility.hh"
-
 #include "normalize.hh"
+#include "global.hh"
 
 #undef TRACE
 
 // declarations
-Tree SIMPLIFIED = tree(symbol("sigSimplifiedProp"));
-//static Tree binequiv (Tree sig, int opnum, Tree a, Tree b);
+
 static Tree simplification (Tree sig);
 static Tree sigMap (Tree key, tfun f, Tree t);
 
 static Tree traced_simplification(Tree sig)
 {
-	assert(sig);
+	faustassert(sig);
 #ifdef TRACE
-    cerr << ++TABBER << "Start simplification of : " << ppsig(sig) << endl;
+    cerr << ++gGlobal->TABBER << "Start simplification of : " << ppsig(sig) << endl;
 	/*
 	fprintf(stderr, "\nStart simplification of : ");
 	printSignal(sig, stderr);
@@ -59,9 +57,9 @@ static Tree traced_simplification(Tree sig)
 	*/
 #endif
 	Tree r = simplification(sig);
-	assert(r!=0);
+	faustassert(r != 0);
 #ifdef TRACE
-    cerr << --TABBER << "Simplification of : " << ppsig(sig) << " Returns : " << ppsig(r) << endl;
+    cerr << --gGlobal->TABBER << "Simplification of : " << ppsig(sig) << " Returns : " << ppsig(r) << endl;
 	/*
 	fprintf(stderr, "Simplification of : ");
 	printSignal(sig, stderr);
@@ -75,7 +73,7 @@ static Tree traced_simplification(Tree sig)
 
 Tree simplify (Tree sig)
 {
-	return sigMap(SIMPLIFIED, traced_simplification, sig);
+	return sigMap(gGlobal->SIMPLIFIED, traced_simplification, sig);
 }
 
 
@@ -83,7 +81,7 @@ Tree simplify (Tree sig)
 
 static Tree simplification (Tree sig)
 {
-	assert(sig);
+	faustassert(sig);
 	int		opnum;
 	Tree	t1, t2, t3, t4;
 
@@ -96,7 +94,7 @@ static Tree simplification (Tree sig)
 		for (int i=0; i<sig->arity(); i++) { args.push_back( sig->branch(i) ); }
 
         // to avoid negative power to further normalization
-        if (xt != gPowPrim) {
+        if (xt != gGlobal->gPowPrim) {
             return xt->computeSigOutput(args);
         } else {
             return normalizeAddTerm(xt->computeSigOutput(args));
@@ -195,10 +193,11 @@ static Tree sigMap (Tree key, tfun f, Tree t)
 
     } else if (isRec(t, id, body)) {
 
-        setProperty(t, key, nil);	// avoid infinite loop
+        setProperty(t, key, gGlobal->nil);	// avoid infinite loop
         return rec(id, sigMap(key, f, body));
 
     } else {
+
         tvec br;
         int n = t->arity();
         for (int i = 0; i < n; i++) {
@@ -209,7 +208,7 @@ static Tree sigMap (Tree key, tfun f, Tree t)
 
         Tree r2 = f(r1);
         if (r2 == t) {
-            setProperty(t, key, nil);
+            setProperty(t, key, gGlobal->nil);
         } else {
             setProperty(t, key, r2);
         }
@@ -237,7 +236,7 @@ static Tree sigMapRename (Tree key, Tree env, tfun f, Tree t)
 
     } else if (isRec(t, id, body)) {
 
-        assert(isRef(t,id)); // controle temporaire
+        faustassert(isRef(t,id)); // controle temporaire
 
         Tree id2;
         if (searchEnv(id, id2, env)) {
@@ -263,7 +262,7 @@ static Tree sigMapRename (Tree key, Tree env, tfun f, Tree t)
 
         Tree r2 = f(r1);
         if (r2 == t) {
-            setProperty(t, key, nil);
+            setProperty(t, key, gGlobal->nil);
         } else {
             setProperty(t, key, r2);
         }
@@ -283,8 +282,8 @@ static void eraseProperties (Tree key, Tree t)
 	} else if (isRec(t, id, body)) {
 		t->clearProperties();
         Tree r=rec(id, body);
-        assert(r==t);
-		setProperty(t, key, nil);	// avoid infinite loop
+        faustassert(r==t);
+		setProperty(t, key, gGlobal->nil);	// avoid infinite loop
 		eraseProperties(key, body);
 
 	} else {
@@ -308,15 +307,11 @@ void eraseAllProperties(Tree t)
  * facilitate the mathematical documentation generation
  */
 
-Tree DOCTABLES = tree(symbol("DocTablesProp"));
-
 static Tree docTableConverter (Tree sig);
-
-static Tree NULLENV = tree(symbol("NullRenameEnv"));
 
 Tree docTableConvertion (Tree sig)
 {
-    Tree r  = sigMapRename(DOCTABLES, NULLENV, docTableConverter, sig);
+    Tree r  = sigMapRename(gGlobal->DOCTABLES, gGlobal->NULLENV, docTableConverter, sig);
     return r;
 }
 
@@ -331,13 +326,13 @@ static Tree docTableConverter (Tree sig)
         // we are in a table to convert
         if (isSigTable(tbl, id, size, igen)) {
             // it's a read only table
-            assert(isSigGen(igen, isig));
+            faustassert(isSigGen(igen, isig));
             return sigDocAccessTbl(sigDocConstantTbl(size,isig),ridx);
         } else {
             // it's a read write table
-            assert(isSigWRTbl(tbl,id,tbl2,widx,wsig));
-            assert(isSigTable(tbl2, id2, size, igen));
-            assert(isSigGen(igen, isig));
+            faustassert(isSigWRTbl(tbl,id,tbl2,widx,wsig));
+            faustassert(isSigTable(tbl2, id2, size, igen));
+            faustassert(isSigGen(igen, isig));
 
             return sigDocAccessTbl(sigDocWriteTbl(size,isig,widx,wsig),ridx);
         }

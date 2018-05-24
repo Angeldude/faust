@@ -1,7 +1,7 @@
 /************************************************************************
  ************************************************************************
     FAUST compiler
-	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
     ---------------------------------------------------------------------
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,23 +19,20 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Text.hh"
-#include "compatibility.hh"
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
-#include <assert.h>
+#include <iomanip>
+#include <limits>
 
+#include "Text.hh"
+#include "compatibility.hh"
 #include "floats.hh"
-
-extern bool gInternDoubleSwitch;
-extern int  gFloatSize;
+#include "global.hh"
 
 static string substitution (const string& model, const vector<string>& args);
 
@@ -131,11 +128,10 @@ string subst (const string& model, const string& a0, const string& a1, const str
 	return substitution (model, args);
 }
 
-
 static string substitution (const string& model, const vector<string>& args)
 {
-    char 	c;
-    int 	i=0, ilast = (int)model.length()-1;
+    char c;
+    int i = 0, ilast = (int)model.length() - 1;
     string 	result;
 
     while (i < ilast) {
@@ -155,68 +151,56 @@ static string substitution (const string& model, const vector<string>& args)
     return result;
 }
 
-
-string T (char* c) 	{ return string(c); }
-string T (int n) 	{ char c[64]; snprintf(c, 63, "%d",n); 	return string(c); }
-string T (long n) 	{ char c[64]; snprintf(c, 63, "%ld",n); return string(c); }
-
+string T(char* c) 	{ return string(c); }
+string T(int n) 	{ char c[64]; snprintf(c, 63, "%d", n); 	return string(c); }
+string T(long n) 	{ char c[64]; snprintf(c, 63, "%ld", n); return string(c); }
 
 /**
  * If needed add a trailing '.0' to the
  * the textual representation of a floating point number
  * to avoid confusions with an int.
  */
-static void ensureFloat(char* c)
+static string ensureFloat(const string& c)
 {
     bool isInt = true;
-    while (*c != 0) {
-        if ((*c == '.') | (*c == 'e'))  isInt = false;
-        c++;
+    for (size_t i = 0; i < c.size(); i++) {
+        if ((c[i] == '.') || (c[i] == 'e')) {
+            isInt = false;
+            break;
+        }
     }
+    return (isInt) ? (c + ".0") : c;
+}
 
-    if (isInt) {
-        *c++ = '.';
-        *c++ = '0';
-        *c   = 0;
-    }
+/**
+ * Convert a simple-precision float into a string.
+ * Adjusts the precision p to the needs.
+ */
+string T(float n)
+{
+    std::stringstream num;
+    num << std::setprecision(std::numeric_limits<float>::max_digits10) << n;
+    return ensureFloat(num.str()) + inumix();
 }
 
 /**
  * Convert a double-precision float into a string.
- * Adjusts the precision p to the needs. Add a trailing
- * f if single-precision is required.
+ * Adjusts the precision p to the needs.
  */
 string T(double n)
 {
-    char    c[64];
-    char*   endp;
-    int     p = 1;
-
-    if (gFloatSize==1) {
-        float v = (float)n;
-        do { snprintf(c, 32, "%.*g", p++, v); endp=0; } while (strtof(c, &endp) != v);
-    } else if (gFloatSize==2) {
-        do { snprintf(c, 32, "%.*g", p++, n); endp=0; } while (strtod(c, &endp) != n);
-    } if (gFloatSize==3) {
-        long double q = n;
-        do { snprintf(c, 32, "%.*Lg", p++, q); endp=0; } while (strtold(c, &endp) != q);
-    }
-    ensureFloat(c);
-    return string(c)+inumix();
+    std::stringstream num;
+    num << std::setprecision(std::numeric_limits<double>::max_digits10) << n;
+    return ensureFloat(num.str()) + inumix();
 }
-
 
 /**
  * remove quotes from a string
  */
-string unquote(const string& s)
+string unquote(const string& str)
 {
-	assert(s.size() >= 2);
-	assert(s[0] == '"');
-	assert(s[s.size()-1] == '"');
-	return s.substr(1, s.size()-2);
+	return (str[0] == '"') ? str.substr(1, str.size() - 2) : str;
 }
-
 
 /**
  * add quotes to a string
@@ -225,6 +209,40 @@ string quote(const string& s)
 {
  	return "\"" + s + "\"";
 }
+
+/**
+ * Print n tabs (for indentation purpose)
+ * @param n number of tabs to print
+ * @param fout output stream
+ */
+void tab(int n, ostream& fout)
+{
+    fout << '\n';
+    while (n--) fout << '\t';
+}
+
+/**
+ * Print a list of lines
+ * @param n number of tabs of indentation
+ * @param lines list of lines to be printed
+ * @param fout output stream
+ */
+void printlines(int n, list<string>& lines, ostream& fout, string sep)
+{
+    list<string>::iterator s;
+    for (s = lines.begin(); s != lines.end(); s++) {
+        if (s == lines.begin()) {
+            tab(n, fout); fout << *s;  // No separator before first one
+        } else {
+            tab(n, fout); fout << sep << *s;
+        }
+    }
+}
+
+/**
+ * rmWhiteSpaces(): Remove the leading and trailing white spaces of a string
+ * (but not those in the middle of the string)
+ */
 
 string rmWhiteSpaces(const string& s)
 {
@@ -236,4 +254,48 @@ string rmWhiteSpaces(const string& s)
     } else {
         return "";
     }
+}
+
+// 'Quad' (= long double) are currectly treated like 'double'
+
+string checkReal(double val)
+{
+    return (strcmp(ifloat(), "float") == 0) ? checkFloat(val) : checkDouble(val);
+}
+
+string indent(const string& str, int tabs)
+{
+    stringstream instream(str);
+    stringstream outstream;
+    string line;
+    while (getline(instream, line, '\n')) {
+        for (int i = 0; i != tabs; ++i) {
+            outstream << '\t';
+        }
+        outstream << line << endl;
+    }
+
+    return outstream.str();
+}
+
+string replaceChar(string str, char src, char dst)
+{
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] == src) {
+            str[i] = dst;
+        }
+    }
+    return str;
+}
+
+string replaceCharList(string str, const vector<char>& ch1, char ch2)
+{
+    vector<char>::const_iterator beg = ch1.begin();
+    vector<char>::const_iterator end = ch1.end();
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (std::find(beg, end, str[i]) != end) {
+            str[i] = ch2;
+        }
+    }
+    return str;
 }

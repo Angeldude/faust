@@ -1,7 +1,7 @@
 /************************************************************************
  ************************************************************************
     FAUST compiler
-	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
     ---------------------------------------------------------------------
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,10 +19,12 @@
  ************************************************************************
  ************************************************************************/
 
-#include "floats.hh"
+#include <iostream>
+#include <sstream>
+#include <stdlib.h>
 
-#define FLOATMACRO "FAUSTFLOAT"
-#define FLOATCAST "(" FLOATMACRO ")"
+#include "floats.hh"
+#include "global.hh"
 
 //-----------------------------------------------
 // float size coding :
@@ -32,34 +34,58 @@
 //          2: double precision float
 //          3: long double precision float
 
-extern int  gFloatSize;
+const char* mathsuffix[4];    // suffix for math functions
+const char* numsuffix[4];     // suffix for numeric constants
+const char* floatname[4];     // float types
+const char* castname[4];      // float castings
+double floatmin[4];           // minimum float values before denormals
 
-
-const char* mathsuffix[] = {"", "f", "", "l"};                                  // suffix for math functions
-const char* numsuffix[]  = {"", "f", "", "L"};                                  // suffix for numeric constants
-const char* floatname[]  = {FLOATMACRO, "float", "double", "quad"};             // float types
-const char* castname[]   = {FLOATCAST, "(float)", "(double)", "(quad)"};        // float castings
-const char* floatmin[]   = {"????", "FLT_MIN", "DBL_MIN", "LDBL_MIN"};          // minimum float values before denormals
-
-
-
-
-
-const char* isuffix() { return mathsuffix[gFloatSize]; } ///< suffix for math functions
-const char* inumix()  { return numsuffix [gFloatSize]; } ///< suffix for numeric constants
-const char* inummin() { return floatmin  [gFloatSize]; } ///< suffix for numeric constants
-
-const char* ifloat() { return floatname[gFloatSize]; }
-const char* icast()  { return castname[gFloatSize]; }
+const char* isuffix() { return mathsuffix[gGlobal->gFloatSize]; }   ///< suffix for math functions
+const char* inumix() { return numsuffix[gGlobal->gFloatSize]; }     ///< suffix for numeric constants
+const char* ifloat() { return floatname[gGlobal->gFloatSize]; }
+const char* icast() { return castname[gGlobal->gFloatSize]; }
+double inummin() { return floatmin[gGlobal->gFloatSize]; }
 
 const char* xfloat() { return floatname[0]; }
-const char* xcast()  { return castname[0]; }
+const char* xcast() { return castname[0]; }
 
-void printfloatdef (std::ostream& fout)
+Typed::VarType itfloat()
+{
+    switch (gGlobal->gFloatSize) {
+        case 1:
+            return Typed::kFloat;
+        case 2:
+            return Typed::kDouble;
+        case 3:
+            return Typed::kQuad;
+        default:
+            faustassert(false);
+            return Typed::kNoType;
+    }
+}
+
+Typed::VarType itfloatptr()
+{
+    switch (gGlobal->gFloatSize) {
+        case 1:
+            return Typed::kFloat_ptr;
+        case 2:
+            return Typed::kDouble_ptr;
+        case 3:
+            return Typed::kQuad_ptr;
+        default:
+            faustassert(false);
+            return Typed::kNoType;
+    }
+}
+
+void printfloatdef(std::ostream& fout, bool quad)
 {
     fout << "#ifndef " << FLOATMACRO << std::endl;
-    fout << "#define " << FLOATMACRO << " " << "float" << std::endl;
-    fout << "#endif  " << std::endl;
+    fout << "#define " << FLOATMACRO << " float" << std::endl;
+    fout << "#endif " << std::endl;
     fout << std::endl;
-    if (gFloatSize == 3) fout << "typedef long double quad;" << std::endl;
+    if (quad) {
+        fout << "typedef long double quad;" << std::endl;
+    }
 }

@@ -19,13 +19,11 @@
  ************************************************************************
  ************************************************************************/
 
-
 /**
  * \file eval.cpp
  * Interface for names propagation.
  *
  **/
-
 
 #include "ppsig.hh"
 #include "names.hh"
@@ -33,35 +31,31 @@
 #include "ppsig.hh"
 #include "doc_Text.hh"
 #include "Text.hh"
-#include <assert.h>
-
+#include "global.hh"
+#include "exception.hh"
 
 // History
 // 2009/09/08 : get/setDefNameProperty
 
-
-extern int gMaxNameSize;
-
-
 /**
  * Definition name property : a property to keep track of the definition name
  * of an expression. Whenever an identifier is evaluated, it is attached as a
- * property of its definitionObviously there is no perfect solution since a same
- * definition quand be given to different names.
+ * property of its definition. Obviously there is no perfect solution since a same
+ * definition can be given to different names.
  */
-Tree DEFNAMEPROPERTY = tree(symbol("DEFNAMEPROPERTY"));
 
 void setDefNameProperty(Tree t, Tree id)
 {
 	//cerr << "setDefNameProperty : " << *id << " FOR " << t << "#" << boxpp(t) << endl;
-	setProperty(t, DEFNAMEPROPERTY, id);
+	setProperty(t, gGlobal->DEFNAMEPROPERTY, id);
 }
 
 void setDefNameProperty(Tree t, const string& name)
 {
 	//cerr << "setDefNameProperty : " << name << " FOR " << t << "#" << boxpp(t) << endl;
 	int		n = (int)name.size();
-	int 	m = (gMaxNameSize>1023) ? 1023 : gMaxNameSize;
+	int 	m = (gGlobal->gMaxNameSize>1023) ? 1023 : gGlobal->gMaxNameSize;
+
 	if (n > m) {
 		// the name is too long we reduce it to 2/3 of maxsize
 		char 	buf[1024];
@@ -75,17 +69,16 @@ void setDefNameProperty(Tree t, const string& name)
 		// copy last third
 		for (int c = n-m/3; c<n; c++, i++) { buf[i] = name[c]; }
 		buf[i] = 0;
-		setProperty(t, DEFNAMEPROPERTY, tree(buf));
+		setProperty(t, gGlobal->DEFNAMEPROPERTY, tree(buf));
 	} else {
-		setProperty(t, DEFNAMEPROPERTY, tree(name.c_str()));
+		setProperty(t, gGlobal->DEFNAMEPROPERTY, tree(name.c_str()));
 	}
-
 }
 
 bool getDefNameProperty(Tree t, Tree& id)
 {
 	//cerr << "getDefNameProperty of : " << t << endl;
-	return getProperty(t, DEFNAMEPROPERTY, id);
+	return getProperty(t, gGlobal->DEFNAMEPROPERTY, id);
 }
 
 
@@ -99,9 +92,6 @@ string defName2NickName (const string& defname)
 	return defname;
 }
 
-Tree NICKNAMEPROPERTY = tree(symbol("NICKNAMEPROPERTY"));
-
-
 /**
  * Set the nickname property of a signal
  */
@@ -109,9 +99,9 @@ void setSigNickname(Tree t, const string& id)
 {
 	Tree 	s,d;
 	if (isSigFixDelay(t,s,d) && isZero(d)) {
-		setProperty(s, NICKNAMEPROPERTY, tree(id));
+		setProperty(s, gGlobal->NICKNAMEPROPERTY, tree(id));
 	} else {
-		setProperty(t, NICKNAMEPROPERTY, tree(id));
+		setProperty(t, gGlobal->NICKNAMEPROPERTY, tree(id));
 	}
 }
 
@@ -121,7 +111,7 @@ void setSigNickname(Tree t, const string& id)
  */
 bool getSigNickname(Tree t, Tree& id)
 {
-	bool r = getProperty(t, NICKNAMEPROPERTY, id);
+	bool r = getProperty(t, gGlobal->NICKNAMEPROPERTY, id);
 	return r;
 }
 
@@ -133,7 +123,7 @@ bool getSigNickname(Tree t, Tree& id)
  */
 void setSigListNickName (Tree  lsig, const string& nickname)
 {
-	assert(isList(lsig));
+	faustassert(isList(lsig));
 	
 	if (isNil(tl(lsig))) {
 		setSigNickname(hd(lsig), nickname);

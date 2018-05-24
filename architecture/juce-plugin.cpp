@@ -44,16 +44,16 @@
 
 #if defined(OSCCTRL)
 #include "faust/gui/JuceOSCUI.h"
-#endif //OSCCTRL
+#endif
 
 #if defined(MIDICTRL)
 #include "faust/midi/juce-midi.h"
-#endif //MIDICTRL
+#endif
 
 #if defined(POLY2)
 #include "faust/dsp/dsp-combiner.h"
 #include "dsp_effect.cpp"
-#endif //POLY POLY2
+#endif 
 
 <<includeIntrinsic>>
 
@@ -134,11 +134,16 @@ class FaustSynthesiser : public Synthesiser, public dsp_voice_group {
     
     private:
         
-        ScopedPointer<Synthesiser> fSynth;
-        
+        Synthesiser fSynth;
+    
+        static void panic(float val, void* arg)
+        {
+            static_cast<FaustSynthesiser*>(arg)->allNotesOff(0, false); // 0 stops all voices
+        }
+  
     public:
         
-        FaustSynthesiser(uiCallback cb, void* arg):dsp_voice_group(cb, arg, true, true), fSynth(new Synthesiser())
+        FaustSynthesiser():dsp_voice_group(panic, this, true, true)
         {}
         
         virtual ~FaustSynthesiser()
@@ -149,23 +154,23 @@ class FaustSynthesiser : public Synthesiser, public dsp_voice_group {
         
         void addVoice(FaustVoice* voice)
         {
-            fSynth->addVoice(voice);
+            fSynth.addVoice(voice);
             dsp_voice_group::addVoice(voice);
         }
         
         void addSound(SynthesiserSound* sound)
         {
-            fSynth->addSound(sound);
+            fSynth.addSound(sound);
         }
         
         void allNotesOff(int midiChannel, bool allowTailOff)
         {
-            fSynth->allNotesOff(midiChannel, allowTailOff);
+            fSynth.allNotesOff(midiChannel, allowTailOff);
         }
         
         void setCurrentPlaybackSampleRate (double newRate)
         {
-            fSynth->setCurrentPlaybackSampleRate(newRate);
+            fSynth.setCurrentPlaybackSampleRate(newRate);
         }
         
         void renderNextBlock (AudioBuffer<float>& outputAudio,
@@ -173,7 +178,7 @@ class FaustSynthesiser : public Synthesiser, public dsp_voice_group {
                               int startSample,
                               int numSamples)
         {
-            fSynth->renderNextBlock(outputAudio, inputMidi, startSample, numSamples);
+            fSynth.renderNextBlock(outputAudio, inputMidi, startSample, numSamples);
         }
         
         void renderNextBlock (AudioBuffer<double>& outputAudio,
@@ -181,9 +186,9 @@ class FaustSynthesiser : public Synthesiser, public dsp_voice_group {
                               int startSample,
                               int numSamples)
         {
-            fSynth->renderNextBlock(outputAudio, inputMidi, startSample, numSamples);
+            fSynth.renderNextBlock(outputAudio, inputMidi, startSample, numSamples);
         }
-        
+    
 };
 
 #endif
@@ -194,7 +199,7 @@ class FaustPlugInAudioProcessor : public AudioProcessor, private Timer
     public:
         
         FaustPlugInAudioProcessor();
-        ~FaustPlugInAudioProcessor();
+        virtual ~FaustPlugInAudioProcessor();
         
         void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     
@@ -239,8 +244,6 @@ class FaustPlugInAudioProcessor : public AudioProcessor, private Timer
         AudioProcessor::BusesProperties getBusesProperties();
         bool supportsDoublePrecisionProcessing() const override;
     
-        static void panic(float val, void* arg);
-        
     #ifdef JUCE_POLY
         ScopedPointer<FaustSynthesiser> fSynth;
     #else
@@ -273,7 +276,7 @@ class FaustPlugInAudioProcessorEditor : public AudioProcessorEditor
     public:
         
         FaustPlugInAudioProcessorEditor (FaustPlugInAudioProcessor&);
-        ~FaustPlugInAudioProcessorEditor();
+        virtual ~FaustPlugInAudioProcessorEditor();
         
         void paint (Graphics&) override;
         void resized() override;
@@ -297,21 +300,22 @@ FaustPlugInAudioProcessor::FaustPlugInAudioProcessor()
 {
     bool midi_sync = false;
     int nvoices = 0;
-    bool group = true;
-    mydsp_poly* dsp_poly = nullptr;
     
     mydsp* tmp_dsp = new mydsp();
     MidiMeta::analyse(tmp_dsp, midi_sync, nvoices);
     delete tmp_dsp;
     
 #ifdef JUCE_POLY
-    fSynth = new FaustSynthesiser(panic, this);
+    fSynth = new FaustSynthesiser();
     for (int i = 0; i < nvoices; i++) {
         fSynth->addVoice(new FaustVoice(new mydsp()));
     }
     fSynth->init();
     fSynth->addSound(new FaustSound());
 #else
+    
+    bool group = true;
+    mydsp_poly* dsp_poly = nullptr;
     
 #ifdef POLY2
     std::cout << "Started with " << nvoices << " voices\n";
@@ -392,15 +396,6 @@ FaustPlugInAudioProcessor::FaustPlugInAudioProcessor()
 
 FaustPlugInAudioProcessor::~FaustPlugInAudioProcessor()
 {}
-
-void FaustPlugInAudioProcessor::panic(float val, void* arg)
-{
-#ifdef JUCE_POLY
-    if (val == 1) {
-        static_cast<FaustSynthesiser*>(arg)->allNotesOff(0, false); // 0 stops all voices
-    }
-#endif
-}
 
 AudioProcessor::BusesProperties FaustPlugInAudioProcessor::getBusesProperties()
 {

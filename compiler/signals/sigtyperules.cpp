@@ -19,25 +19,21 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #include <stdio.h>
-#include <assert.h>
 #include <iostream>
 #include <fstream>
 #include <time.h>
 
-
 #include "sigtype.hh"
 #include "sigprint.hh"
 #include "ppsig.hh"
-//#include "prim.hh"
 #include "prim2.hh"
 #include "tlib.hh"
 #include "sigtyperules.hh"
 #include "xtended.hh"
 #include "recursivness.hh"
-
+#include "exception.hh"
+#include "global.hh"
 
 //--------------------------------------------------------------------------
 // prototypes
@@ -64,22 +60,13 @@ static Type infereWaveformType (Tree lv, Tree env);
 
 static interval arithmetic (int opcode, const interval& x, const interval& y);
 
-
-
 // Uncomment to activate type inferrence tracing
 //#define TRACE(x) x
-#define TRACE(x) ;
-
+#define TRACE(x);
 
 /**
  * The empty type environment (also property key for closed term type)
  */
-static Tree NULLTYPEENV = tree(symbol("NullTypeEnv"));
-
-static int countInferences;
-static int countMaximal;
-
-
 
 /**
  * Fully annotate every subtree of term with type information.
@@ -97,7 +84,7 @@ void typeAnnotation(Tree sig)
     //cerr << "Symlist " << *sl << endl;
     for (Tree l=sl; isList(l); l=tl(l)) {
         Tree    id, body;
-		assert(isRec(hd(l), id, body));
+		faustassert(isRec(hd(l), id, body));
 		if (!isRec(hd(l), id, body)) {
 			continue;
 		}
@@ -111,9 +98,9 @@ void typeAnnotation(Tree sig)
         vtype.push_back(initialRecType(vdef[i]));
     }
 
-    assert (int(vrec.size())==n);
-    assert (int(vdef.size())==n);
-    assert (int(vtype.size())==n);
+    faustassert(int(vrec.size())==n);
+    faustassert(int(vdef.size())==n);
+    faustassert(int(vtype.size())==n);
 
     // find least fixpoint
     for (bool finished = false; !finished; ) {
@@ -127,7 +114,7 @@ void typeAnnotation(Tree sig)
 
         // compute recursive types
         for (int i=0; i<n; i++) {
-            vtype[i] = T(vdef[i], NULLTYPEENV);
+            vtype[i] = T(vdef[i], gGlobal->NULLTYPEENV);
         }
 
         // check finished
@@ -139,15 +126,14 @@ void typeAnnotation(Tree sig)
     }
 
     // type full term
-    T(sig, NULLTYPEENV);
+    T(sig, gGlobal->NULLTYPEENV);
 }
-
 
 void annotationStatistics()
 {
-    cerr << TABBER << "COUNT INFERENCE  " << countInferences << " AT TIME " << clock()/CLOCKS_PER_SEC << 's' << endl;
-    cerr << TABBER << "COUNT ALLOCATION " << AudioType::gAllocationCount << endl;
-    cerr << TABBER << "COUNT MAXIMAL " << countMaximal << endl;
+    cerr << gGlobal->TABBER << "COUNT INFERENCE  " << gGlobal->gCountInferences << " AT TIME " << clock()/CLOCKS_PER_SEC << 's' << endl;
+    cerr << gGlobal->TABBER << "COUNT ALLOCATION " << gGlobal->gAllocationCount << endl;
+    cerr << gGlobal->TABBER << "COUNT MAXIMAL " << gGlobal->gCountMaximal << endl;
 }
 
 /**
@@ -156,14 +142,12 @@ void annotationStatistics()
  * @param sig the signal we want to know the type
  * @return the type of the signal
  */
-Type getCertifiedSigType(Tree sig)
+::Type getCertifiedSigType(Tree sig)
 {
     Type ty = getSigType(sig);
-    assert(ty);
+    faustassert(ty);
     return ty;
 }
-
-
 
 /***********************************************
  * Set and get the type property of a signal
@@ -178,10 +162,9 @@ Type getCertifiedSigType(Tree sig)
  */
 static void setSigType(Tree sig, Type t)
 {
-    TRACE(cerr << TABBER << "SET FIX TYPE OF " << *sig << " TO TYPE " << *t << endl;)
+    TRACE(cerr << gGlobal->TABBER << "SET FIX TYPE OF " << *sig << " TO TYPE " << *t << endl;)
 	sig->setType(t);
 }
-
 
 /**
  * Retrieve the type annotation of sig
@@ -191,15 +174,11 @@ static Type getSigType(Tree sig)
 {
     AudioType* ty = (AudioType*) sig->getType();
     if (ty == 0)
-        TRACE(cerr << TABBER << "GET FIX TYPE OF " << *sig << " HAS NO TYPE YET" << endl;)
+        TRACE(cerr << gGlobal->TABBER << "GET FIX TYPE OF " << *sig << " HAS NO TYPE YET" << endl;)
     else
-        TRACE(cerr << TABBER << "GET FIX TYPE OF " << *sig << " IS TYPE " << *ty << endl;)
+        TRACE(cerr << gGlobal->TABBER << "GET FIX TYPE OF " << *sig << " IS TYPE " << *ty << endl;)
     return ty;
 }
-
-
-
-
 
 /**************************************************************************
 
@@ -222,22 +201,21 @@ static Type getSigType(Tree sig)
  */
 static Type T(Tree term, Tree ignoreenv)
 {
-    TRACE(cerr << ++TABBER << "ENTER T() " << *term << endl;)
+    TRACE(cerr << ++gGlobal->TABBER << "ENTER T() " << *term << endl;)
 
     if (term->isAlreadyVisited()) {
         Type    ty =  getSigType(term);
-        TRACE(cerr << --TABBER << "EXIT 1 T() " << *term << " AS TYPE " << *ty << endl);
+        TRACE(cerr << --gGlobal->TABBER << "EXIT 1 T() " << *term << " AS TYPE " << *ty << endl);
         return ty;
 
     } else {
         Type ty = infereSigType(term, ignoreenv);
         setSigType(term,ty);
         term->setVisited();
-        TRACE(cerr << --TABBER << "EXIT 2 T() " << *term << " AS TYPE " << *ty << endl);
+        TRACE(cerr << --gGlobal->TABBER << "EXIT 2 T() " << *term << " AS TYPE " << *ty << endl);
         return ty;
     }
 }
-
 
 /**
  * Infere the type of a term according to its surrounding type environment
@@ -250,10 +228,10 @@ static Type infereSigType(Tree sig, Tree env)
 {
     int 		i;
 	double 		r;
-    Tree		sel, s1, s2, s3, ff, id, ls, l, x, y, z, u, var, body, type, name, file;
+    Tree		sel, s1, s2, s3, ff, id, ls, l, x, y, z, u, var, body, type, name, file, sf;
 	Tree		label, cur, min, max, step;
 
-    countInferences++;
+    gGlobal->gCountInferences++;
 
 		 if ( getUserData(sig) ) 			return infereXType(sig, env);
 
@@ -265,8 +243,7 @@ static Type infereSigType(Tree sig, Tree env)
 
     else if (isSigWaveform(sig))            {   return infereWaveformType(sig, env); }
 
-
-    else if (isSigInput(sig, &i))			{   /*sig->setType(TINPUT);*/ return TINPUT; }
+    else if (isSigInput(sig, &i))			{   /*sig->setType(TINPUT);*/ return gGlobal->TINPUT; }
 
     else if (isSigOutput(sig, &i, s1))      return sampCast(T(s1,env));
 
@@ -291,15 +268,17 @@ static Type infereSigType(Tree sig, Tree env)
 //				<< t1 << ':' << ppsig(s1) << ", s2 = "
 //                << t2 << ':' << ppsig(s2) << endl;
 		if (!i.valid) {
-			cerr << "ERROR : can't compute the min and max values of : " << ppsig(s2) << endl;
-			cerr << "        used in delay expression : " << ppsig(sig) << endl;
-			cerr << "        (probably a recursive signal)" << endl;
-			exit(1);
+            stringstream error;
+            error << "ERROR : can't compute the min and max values of : " << ppsig(s2) << endl
+                    << "        used in delay expression : " << ppsig(sig) << endl
+                    << "        (probably a recursive signal)" << endl;
+            throw faustexception(error.str());
 		} else if (i.lo < 0) {
-			cerr << "ERROR : possible negative values of : " << ppsig(s2) << endl;
-			cerr << "        used in delay expression : " << ppsig(sig) << endl;
-			cerr << "        " << i << endl;
-			exit(1);
+            stringstream error;
+            error << "ERROR : possible negative values of : " << ppsig(s2) << endl
+                    << "        used in delay expression : " << ppsig(sig) << endl
+                    << "        " << i << endl;
+            throw faustexception(error.str());
 		}
 
 		return castInterval(sampCast(t1), reunion(t1->getInterval(), interval(0,0)));
@@ -331,24 +310,34 @@ static Type infereSigType(Tree sig, Tree env)
 
     else if (isSigFVar(sig,type,name,file))     return infereFVarType(type);
 
-    else if (isSigButton(sig))                  { /*sig->setType(TGUI01);*/ return TGUI01; }
+    else if (isSigButton(sig))                  { /*sig->setType(TGUI01);*/ return gGlobal->TGUI01; }
 
-    else if (isSigCheckbox(sig))				{ /*sig->setType(TGUI01);*/ return TGUI01; }
+    else if (isSigCheckbox(sig))				{ /*sig->setType(TGUI01);*/ return gGlobal->TGUI01; }
 
 	else if (isSigVSlider(sig,label,cur,min,max,step))
-												return castInterval(TGUI,interval(tree2float(min),tree2float(max)));
+												return castInterval(gGlobal->TGUI,interval(tree2float(min),tree2float(max)));
 
 	else if (isSigHSlider(sig,label,cur,min,max,step))
-												return castInterval(TGUI,interval(tree2float(min),tree2float(max)));
+												return castInterval(gGlobal->TGUI,interval(tree2float(min),tree2float(max)));
 
 	else if (isSigNumEntry(sig,label,cur,min,max,step))
-												return castInterval(TGUI,interval(tree2float(min),tree2float(max)));
+												return castInterval(gGlobal->TGUI,interval(tree2float(min),tree2float(max)));
 
     else if (isSigHBargraph(sig, l, x, y, s1))  return T(s1, env)->promoteVariability(kBlock);
 
     else if (isSigVBargraph(sig, l, x, y, s1))  return T(s1, env)->promoteVariability(kBlock);
 
+    else if ( isSigSoundfile(sig,l) )		        { return makeSimpleType(kInt, kBlock, kExec, kVect, kNum, interval(0,0x7FFFFFFF));	}
+    else if ( isSigSoundfileLength(sig,sf) )		{ T(sf,env); return makeSimpleType(kInt, kBlock, kExec, kVect, kNum, interval(0,0x7FFFFFFF));	}
+    else if ( isSigSoundfileRate(sig,sf) )		    { T(sf,env); return makeSimpleType(kInt, kBlock, kExec, kVect, kNum, interval(0,0x7FFFFFFF));	}
+    else if ( isSigSoundfileChannels(sig,sf) )		{ T(sf,env); return makeSimpleType(kInt, kBlock, kExec, kVect, kNum, interval(0,0x7FFFFFFF));	}
+    else if ( isSigSoundfileBuffer(sig,sf,x,s1))    { T(sf,env); T(x,env); T(s1,env); return makeSimpleType(kReal, kSamp, kExec, kVect, kNum, interval());	}
+
     else if (isSigAttach(sig, s1, s2))          { T(s2,env); return T(s1,env); }
+
+    else if (isSigEnable(sig, s1, s2))          { T(s2,env); return T(s1,env); }
+
+    else if (isSigControl(sig, s1, s2))         { T(s2,env); return T(s1,env); }
 
     else if (isRec(sig, var, body))             return infereRecType(sig, body, env);
 
@@ -360,7 +349,7 @@ static Type infereSigType(Tree sig, Tree env)
 
 	else if (isSigRDTbl(sig, s1, s2)) 			return infereReadTableType(T(s1,env), T(s2,env));
 
-    else if (isSigGen(sig, s1)) 				return T(s1,NULLTYPEENV);
+    else if (isSigGen(sig, s1)) 				return T(s1,gGlobal->NULLTYPEENV);
 
     else if ( isSigDocConstantTbl(sig, x, y) )	return infereDocConstantTblType(T(x,env), T(y,env));
     else if ( isSigDocWriteTbl(sig,x,y,z,u) )	return infereDocWriteTblType(T(x,env), T(y,env), T(z,env), T(u,env));
@@ -389,12 +378,9 @@ static Type infereSigType(Tree sig, Tree env)
     else if (isList(sig))                       { return T( hd(sig),env ) * T( tl(sig),env ); }
 
 	// unrecognized signal here
-	fprintf(stderr, "ERROR inferring signal type : unrecognized signal  : "); print(sig, stderr); fprintf(stderr, "\n");
-	exit(1);
+    throw faustexception("ERROR inferring signal type : unrecognized signal\n");
 	return 0;
 }
-
-
 
 /**
  *	Infere the type of a projection (selection) of a tuplet element
@@ -403,8 +389,9 @@ static Type infereProjType(Type t, int i, int vec)
 {
 	TupletType* tt = isTupletType(t);
 	if (tt == 0) {
-		cerr << "ERROR inferring projection type, not a tuplet type : " << t << endl;
-		exit(1);
+	    stringstream error;
+        error << "ERROR inferring projection type, not a tuplet type : " << t << endl;
+        throw faustexception(error.str());
 	}
 	//return (*tt)[i]	->promoteVariability(t->variability())
 	//		->promoteComputability(t->computability());
@@ -419,8 +406,6 @@ static Type infereProjType(Type t, int i, int vec)
     return temp;
 }
 
-
-
 /**
  *	Infere the type of the result of writing into a table
  */
@@ -428,13 +413,15 @@ static Type infereWriteTableType(Type tbl, Type wi, Type wd)
 {
 	TableType* tt = isTableType(tbl);
 	if (tt == 0) {
-		cerr << "ERROR inferring write table type, wrong table type : " << tbl << endl;
-		exit(1);
+        stringstream error;
+        error << "ERROR inferring write table type, wrong table type : " << tbl << endl;
+        throw faustexception(error.str());
 	}
 	SimpleType* st = isSimpleType(wi);
 	if (st == 0 || st->nature() > kInt) {
-		cerr << "ERROR inferring write table type, wrong write index type : " << wi << endl;
-		exit(1);
+	    stringstream error;
+        error << "ERROR infering write table type, wrong write index type : " << wi << endl;
+        throw faustexception(error.str());
 	}
 
 	int n = tt->nature();
@@ -443,26 +430,24 @@ static Type infereWriteTableType(Type tbl, Type wi, Type wd)
 	int vec = wi->vectorability() | wd->vectorability();
 
     return makeTableType(tt->content(), n, v, c, vec);
-
 }
-
-
 
 /**
  *	Infere the type of the result of reading a table
  */
 static Type infereReadTableType(Type tbl, Type ri)
 {
-    //cout << "infereReadTableType (" << *tbl << ", " << *ri << ")" << endl;
-    TableType *tt = isTableType(tbl);
-    if (tt == 0) {
-		cerr << "ERROR inferring read table type, wrong table type : " << tbl << endl;
-		exit(1);
+	TableType*	tt = isTableType(tbl);
+	if (tt == 0) {
+        stringstream error;
+        error << "ERROR inferring read table type, wrong table type : " << tbl << endl;
+        throw faustexception(error.str());
 	}
 	SimpleType* st = isSimpleType(ri);
 	if (st == 0 || st->nature() > kInt) {
-		cerr << "ERROR inferring read table type, wrong write index type : " << ri << endl;
-		exit(1);
+        stringstream error;
+        error << "ERROR infering read table type, wrong write index type : " << ri << endl;
+        throw faustexception(error.str());
 	}
     Type temp = makeSimpleType(
         tbl->nature(),
@@ -472,12 +457,8 @@ static Type infereReadTableType(Type tbl, Type ri)
         tbl->boolean(),
         tbl->getInterval());
 
-    //cout << "infereReadTableType (" << *tbl << ", " << *ri << ") -> " << *temp << endl;
-
     return temp;
-
 }
-
 
 static Type infereDocConstantTblType(Type size, Type init)
 {
@@ -510,20 +491,18 @@ static Type infereDocAccessTblType(Type tbl, Type ridx)
     return temp;
 }
 
-
 /**
  * Compute an initial type solution for a recursive block
  * E1,E2,...En -> TREC,TREC,...TREC
  */
 static Type initialRecType(Tree t)
 {
-    assert (isList(t));
+    faustassert(isList(t));
 
     vector<Type> v;
-    while (isList(t)) { v.push_back(TREC); t = tl(t); };
+    while (isList(t)) { v.push_back(gGlobal->TREC); t = tl(t); };
     return new TupletType(v);
 }
-
 
 /**
  * Infere the type of e recursive block by trying solutions of
@@ -531,10 +510,9 @@ static Type initialRecType(Tree t)
  */
 static Type infereRecType (Tree sig, Tree body, Tree env)
 {
-    assert(false); // we should not come here
+    faustassert(false); // we should not come here
     return 0;
 }
-
 
 /**
  *	Infere the type of a foreign function call
@@ -565,7 +543,6 @@ static Type infereFFType (Tree ff, Tree ls, Tree env)
 	}
 }
 
-
 /**
  *  Infere the type of a foreign constant
  */
@@ -577,7 +554,6 @@ static Type infereFConstType (Tree type)
     return makeSimpleType(tree2int(type),kKonst,kInit,kVect,kNum, interval());
 }
 
-
 /**
  *  Infere the type of a foreign variable
  */
@@ -587,7 +563,6 @@ static Type infereFVarType (Tree type)
     // l'execution. Elle est varie par blocs comme les éléments d'interface utilisateur.
     return makeSimpleType(tree2int(type),kBlock,kExec,kVect,kNum, interval());
 }
-
 
 /**
  *  Infere the type of a waveform:
@@ -605,8 +580,7 @@ static Type infereWaveformType (Tree wfsig, Tree env)
     double  lo, hi;
 
     if (n == 0) {
-        std::cerr << "ERROR, empty waveform" << std::endl;
-        exit(1);
+        throw faustexception("ERROR, empty waveform");
     }
 
     lo = hi = tree2float(wfsig->branch(0));
@@ -644,10 +618,6 @@ static Type infereXType(Tree sig, Tree env)
 	return p->infereSigType(vt);
 }
 
-
-
-
-
 /**
  * Compute the resulting interval of an arithmetic operation
  * @param op code of the operation
@@ -676,8 +646,9 @@ static interval arithmetic (int opcode, const interval& x, const interval& y)
         case kOR:  return x|y;
         case kXOR: return x^y;
         default:
-            cerr << "Unrecognized opcode : " << opcode << endl;
-            exit(1);
+            stringstream error;
+            error << "ERROR : unrecognized opcode : " << opcode << endl;
+            throw faustexception(error.str());
     }
 
     return interval();

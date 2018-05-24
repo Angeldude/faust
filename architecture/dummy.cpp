@@ -30,8 +30,9 @@
 #include "faust/gui/PathBuilder.h"
 #include "faust/gui/FUI.h"
 #include "faust/gui/JSONUI.h"
-#include "faust/misc.h"
+#include "faust/gui/SoundUI.h"
 #include "faust/audio/dummy-audio.h"
+#include "faust/misc.h"
 
 #ifdef OSCCTRL
 #include "faust/gui/OSCUI.h"
@@ -102,8 +103,13 @@ int main(int argc, char* argv[])
     MidiMeta::analyse(tmp_dsp, midi_sync, nvoices);
     delete tmp_dsp;
     
-    snprintf(name, 255, "%s", basename(argv[0]));
-    snprintf(rcfilename, 255, "%s/.%src", home, name);
+    snprintf(name, 256, "%s", basename(argv[0]));
+    snprintf(rcfilename, 256, "%s/.%src", home, name);
+    
+    if (isopt(argv, "-h")) {
+        std::cout << "prog [--frequency <val>] [--buffer <val>] [--nvoices <val>] [--group <0/1>]\n";
+        exit(1);
+    }
     
 #ifdef POLY2
     nvoices = lopt(argv, "--nvoices", nvoices);
@@ -172,7 +178,7 @@ int main(int argc, char* argv[])
     cout << "OSC is on" << endl;
 #endif
     
-    dummyaudio audio(44100, 128, 5, true);
+    dummyaudio audio(44100, 128, 5, 128);
     audio.init(name, DSP);
     
 #ifdef MIDICTRL

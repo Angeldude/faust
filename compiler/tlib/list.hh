@@ -19,8 +19,6 @@
  ************************************************************************
  ************************************************************************/
  
- 
- 
 /*****************************************************************************
 ******************************************************************************
 								LIST 
@@ -111,19 +109,13 @@ This file contains several extensions to the tree library :
 
 // Basic List Operations implemented on trees
 
-extern Sym 			CONS;
-extern Sym 			NIL;
-extern Tree 	nil;
-
 typedef Tree (*tfun)(Tree);
 
 void print (Tree t, FILE* out=stdout);
-//bool printlist (const CTree* lc);
 
 // to create new lists
-inline Tree 	cons (Tree a, Tree b)		{ return tree (CONS, a, b); }
-
-inline Tree 	list0 () 								{ return nil; }
+Tree 	cons (Tree a, Tree b);
+Tree 	list0 ();
 inline Tree 	list1 (Tree a) 							{ return cons (a, list0()); }
 inline Tree 	list2 (Tree a, Tree b) 					{ return cons (a, list1(b)); }
 inline Tree 	list3 (Tree a, Tree b, Tree c) 			{ return cons (a, list2(b, c)); }
@@ -134,8 +126,8 @@ inline Tree 	hd (Tree l)				{ return l->branch(0); }
 inline Tree 	tl (Tree l)				{ return l->branch(1); }
 
 // predicates
-inline bool 	isNil (Tree l)			{ return (l->node() == Node(NIL)) && (l->arity() == 0) ; }
-inline bool 	isList (Tree l)			{ return (l->node() == Node(CONS)) && (l->arity() == 2) ; }
+bool 	isNil (Tree l);
+bool 	isList (Tree l);
 
 // predicates
 Tree			nth(Tree l, int i);
@@ -170,9 +162,9 @@ Tree setDifference (Tree l1, Tree l2);
 inline Tree left (Tree t) 			{ return t->branch(0); }
 inline Tree right (Tree t) 			{ return t->branch(1); }
 
-
 // Environment : stack of pairs key value)
-Tree 	pushEnv (Tree key, Tree val, Tree env=nil);
+//Tree 	pushEnv (Tree key, Tree val, Tree env=gGlobal->nil);
+Tree 	pushEnv (Tree key, Tree val, Tree env);
 bool 	searchEnv (Tree key, Tree& v, Tree env);
 
 // Operations on the property list of a tree t
@@ -185,6 +177,5 @@ Tree tmap (Tree k, tfun f, Tree t);
 
 // remplacement
 Tree substitute (Tree t, Tree id, Tree val);
-
 
 #endif

@@ -10,7 +10,7 @@
 
 /************************************************************************
     FAUST Architecture File
-    Copyright (C) 2004-2011 GRAME, Centre National de Creation Musicale
+    Copyright (C) 2004-2028 GRAME, Centre National de Creation Musicale
     ---------------------------------------------------------------------
     This Architecture section is free software; you can redistribute it
     and/or modify it under the terms of the GNU Lesser General Public
@@ -78,6 +78,10 @@
 #include "effect.cpp"
 #endif
 
+#if SOUNDFILE
+#include "faust/gui/SoundUI.h"
+#endif
+
 using namespace std;
 
 /******************************************************************************
@@ -108,10 +112,11 @@ using namespace std;
 #include "jpatcher_api.h"
 #include <string.h>
 
-#define ASSIST_INLET 	1  		/* should be defined somewhere ?? */
-#define ASSIST_OUTLET 	2		/* should be defined somewhere ?? */
+#define ASSIST_INLET 	1  	/* should be defined somewhere ?? */
+#define ASSIST_OUTLET 	2	/* should be defined somewhere ?? */
 
-#define EXTERNAL_VERSION "0.60"
+#define EXTERNAL_VERSION    "0.64"
+#define STR_SIZE            512
 
 #include "faust/gui/GUI.h"
 #include "faust/gui/MidiUI.h"
@@ -153,6 +158,17 @@ struct Max_Meta2 : Meta
     }
 };
 
+struct Max_Meta3 : Meta
+{
+    string fName;
+    void declare(const char* key, const char* value)
+    {
+        if ((strcmp("filename", key) == 0)) {
+            fName = "com.grame." + string(value) + "~";
+        }
+    }
+};
+
 /*--------------------------------------------------------------------------*/
 typedef struct faust
 {
@@ -171,6 +187,9 @@ typedef struct faust
 #ifdef MIDICTRL
     MidiUI* m_midiUI;
     midi_handler* m_midiHandler;
+#endif
+#ifdef SOUNDFILE
+    SoundUI* m_soundInterface;
 #endif
 } t_faust;
 
@@ -210,7 +229,7 @@ class mspCheckButton : public mspUIObject {
 
 		void toString(char* buffer)
 		{
-            sprintf(buffer, "CheckButton(double): %s", fLabel.c_str());
+            snprintf(buffer, STR_SIZE, "CheckButton(double): %s", fLabel.c_str());
 		}
 };
 
@@ -224,7 +243,7 @@ class mspButton : public mspUIObject {
 
 		void toString(char* buffer)
 		{
-            sprintf(buffer, "Button(double): %s", fLabel.c_str());
+            snprintf(buffer, STR_SIZE, "Button(double): %s", fLabel.c_str());
 		}
 };
 
@@ -244,12 +263,13 @@ class mspSlider : public mspUIObject {
 			:mspUIObject(label,zone),fInit(init),fMin(min),fMax(max),fStep(step) {}
 		virtual ~mspSlider() {}
 
-		void toString(char* buffer)
-		{
-            stringstream s; 
-            s << "Slider(double): " << fLabel << " [init=" << fInit << ":min=" << fMin << ":max=" << fMax << ":step=" << fStep << ":cur=" << *fZone << "]";
-            strcpy(buffer, s.str().c_str());
-		}
+        void toString(char* buffer)
+        {
+            stringstream str;
+            str << "Slider(float): " << fLabel << " [init=" << fInit << ":min=" << fMin << ":max=" << fMax << ":step=" << fStep << ":cur=" << *fZone << "]";
+            string res = str.str();
+            snprintf(buffer, STR_SIZE, "%s", res.c_str());
+        }
 
 		void setValue(FAUSTFLOAT f) {*fZone = range(fMin,fMax,f);}
 };
@@ -271,11 +291,12 @@ class mspBargraph : public mspUIObject {
         
         void toString(char* buffer)
         {
-            stringstream s; 
-            s << "Bargraph(float): " << fLabel << " [min=" << fMin << ":max=" << fMax << ":cur=" << *fZone << "]";
-            strcpy(buffer, s.str().c_str());
+            stringstream str;
+            str << "Bargraph(float): " << fLabel << " [min=" << fMin << ":max=" << fMax << ":cur=" << *fZone << "]";
+            string res = str.str();
+            snprintf(buffer, STR_SIZE, "%s", res.c_str());
         }
-        
+    
         virtual FAUSTFLOAT getValue() 
         { 
             if (*fZone != fCurrent) {
@@ -402,6 +423,8 @@ class mspUI : public UI
             fDeclareTable.clear();
         }
     
+        void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
+    
         void openTabBox(const char* label) {fControlsLevel.push_back(label); fDeclareTable.clear();}
         void openHorizontalBox(const char* label) {fControlsLevel.push_back(label); fDeclareTable.clear();}
         void openVerticalBox(const char* label) {fControlsLevel.push_back(label); fDeclareTable.clear();}
@@ -477,6 +500,23 @@ class mspUI : public UI
             fUITable1.clear(); 
             fUITable2.clear(); 
         }
+    
+        void displayControls()
+        {
+            iterator it;
+            post((char*)"------- labels and ranges ----------");
+            for (it = fUITable1.begin(); it != fUITable1.end(); it++) {
+                char param[STR_SIZE];
+                it->second->toString(param);
+                post(param);
+            }
+            post((char*)"------- complete paths ----------");
+            for (it = fUITable2.begin(); it != fUITable2.end(); it++) {
+                post(it->first.c_str());
+            }
+            post((char*)"---------------------------------");
+        }
+    
 };
 
 //--------------------------------------------------------------------------
@@ -562,17 +602,18 @@ void faust_anything(t_faust* obj, t_symbol* s, short ac, t_atom* av)
             
             stringstream num_val;
             num_val << num + i;
+            string str = num_val.str();
             char param_name[256];
             
-            switch (ndigit - count_digit(num_val.str())) {
-                case 0: 
-                    sprintf(param_name, "%s%s", prefix.c_str(), num_val.str().c_str());
+            switch (ndigit - count_digit(str)) {
+                case 0:
+                    sprintf(param_name, "%s%s", prefix.c_str(), str.c_str());
                     break;
-                case 1: 
-                    sprintf(param_name, "%s %s", prefix.c_str(), num_val.str().c_str());
+                case 1:
+                    sprintf(param_name, "%s %s", prefix.c_str(), str.c_str());
                     break;
-                case 2: 
-                    sprintf(param_name, "%s  %s", prefix.c_str(), num_val.str().c_str());
+                case 2:
+                    sprintf(param_name, "%s  %s", prefix.c_str(), str.c_str());
                     break;
             }
             
@@ -603,6 +644,12 @@ void faust_anything(t_faust* obj, t_symbol* s, short ac, t_atom* av)
 void faust_polyphony(t_faust* obj, t_symbol* s, short ac, t_atom* av)
 {
     if (systhread_mutex_lock(obj->m_mutex) == MAX_ERR_NONE) {
+    #ifdef MIDICTRL
+        mydsp_poly* poly = dynamic_cast<mydsp_poly*>(obj->m_dsp);
+        if (poly) {
+            obj->m_midiHandler->removeMidiIn(poly);
+        }
+    #endif
         // Delete old
         delete obj->m_dsp;
         obj->m_dspUI->clear();
@@ -788,6 +835,17 @@ void* faust_new(t_symbol* s, short ac, t_atom* av)
     }
 
     ((t_pxobject*)x)->z_misc = Z_NO_INPLACE; // To assure input and output buffers are actually different
+
+#ifdef SOUNDFILE
+    Max_Meta3 meta3;
+    x->m_dsp->metadata(&meta3);
+    string bundle_path_str = SoundUI::getBinaryPathFrom(meta3.fName);
+    if (bundle_path_str == "") {
+        post("Bundle_path cannot be found!");
+    }
+    x->m_soundInterface = new SoundUI(bundle_path_str);
+    x->m_dsp->buildUserInterface(x->m_soundInterface);
+#endif
     
     // Send JSON to JS script
     faust_create_jsui(x);
@@ -797,16 +855,11 @@ void* faust_new(t_symbol* s, short ac, t_atom* av)
 /*--------------------------------------------------------------------------*/
 void faust_dblclick(t_faust* x, long inlet)
 {
-    post((char*)"------------------");
-    for (mspUI::iterator it = x->m_dspUI->begin1(); it != x->m_dspUI->end1(); ++it) {
-        char param[1024];
-        it->second->toString(param);
-        post(param);
-    }
+    x->m_dspUI->displayControls();
 }
 
 /*--------------------------------------------------------------------------*/
-//11/13/2015 : faust_assist is actually called at each click in the patcher... to we now use 'faust_dblclick' to display the parameters...
+//11/13/2015 : faust_assist is actually called at each click in the patcher, so we now use 'faust_dblclick' to display the parameters...
 void faust_assist(t_faust* x, void* b, long msg, long a, char* dst)
 {
     if (msg == ASSIST_INLET) {
@@ -816,14 +869,6 @@ void faust_assist(t_faust* x, void* b, long msg, long a, char* dst)
             } else {
                 sprintf(dst, "(signal) : Audio Input %ld", (a+1));
 			}
-            /*
-			post((char*)"------------------");
-			for (mspUI::iterator it = x->m_dspUI->begin1(); it != x->m_dspUI->end1(); ++it) {
-				char param[1024];
-				it->second->toString(param);
-				post(param);
-			}
-            */
         } else if (a < x->m_dsp->getNumInputs()) {
             sprintf(dst, "(signal) : Audio Input %ld", (a+1));
         }
@@ -850,8 +895,12 @@ void faust_free(t_faust* x)
     if (x->m_json) free(x->m_json);
     systhread_mutex_free(x->m_mutex);
 #ifdef MIDICTRL
-    delete x->m_midiHandler;
+    // m_midiUI *must* be deleted before m_midiHandler
     delete x->m_midiUI;
+    delete x->m_midiHandler;
+#endif
+#ifdef SOUNDFILE
+    delete x->m_soundInterface;
 #endif
 }
 
@@ -872,7 +921,7 @@ void faust_perform64(t_faust* x, t_object* dsp64, double** ins, long numins, dou
     #ifdef MIDICTRL
         GUI::updateAllGuis();
     #endif
-         systhread_mutex_unlock(x->m_mutex);
+        systhread_mutex_unlock(x->m_mutex);
     } else {
         // Write null buffers to outs
         for (int i = 0; i < numouts; i++) {
@@ -910,7 +959,7 @@ extern "C" int main(void)
     dsp_initclass();
 
     post((char*)"Faust DSP object v%s (sample = 64 bits code = %s)", EXTERNAL_VERSION, getCodeSize());
-    post((char*)"Copyright (c) 2012-2017 Grame");
+    post((char*)"Copyright (c) 2012-2018 Grame");
     Max_Meta1 meta1;
     tmp_dsp->metadata(&meta1);
     if (meta1.fCount > 0) {

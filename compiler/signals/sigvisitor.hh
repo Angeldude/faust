@@ -1,15 +1,36 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 #ifndef __SIGVISITOR__
 #define __SIGVISITOR__
 
 #include "signals.hh"
 
-struct sigvisitor
+struct sigvisitor 
 {
 	// predefined visit scheme
 	void visit(Tree sig);
 	
 	// Unrecognized signal (default handler)
-	virtual void visitError		(Tree sig);
+	virtual void visitError(Tree sig);
 	
 	virtual ~sigvisitor() {}
 	
@@ -43,8 +64,10 @@ struct sigvisitor
 	virtual void visitNumEntry	(Tree sig, Tree label, Tree cur, Tree min, Tree max, Tree step) = 0;
 	virtual void visitVBargraph	(Tree sig, Tree label, Tree min, Tree max, Tree s1) = 0;
 	virtual void visitHBargraph	(Tree sig, Tree label, Tree min, Tree max, Tree s1) = 0;
-	virtual void visitAttach	(Tree sig, Tree s1, Tree s2) = 0;
-	
+    virtual void visitAttach	(Tree sig, Tree s1, Tree s2) = 0;
+    virtual void visitEnable    (Tree sig, Tree s1, Tree s2) = 0;
+    virtual void visitControl   (Tree sig, Tree s1, Tree s2) = 0;
+
 	// recursive
 	virtual void visitRec 		(Tree sig, Tree var, Tree body) = 0;
  	virtual void visitRef 		(Tree sig, Tree var) = 0; 
@@ -107,7 +130,7 @@ struct fullvisitor : sigvisitor
 	
 	// recursive
 	virtual void visitRec 		(Tree sig, Tree var, Tree body) 				{ visit(body); }
- 	virtual void visitRef 		(Tree sig, Tree var) 							{ } 
+ 	virtual void visitRef 		(Tree sig, Tree var) 							{} 
  	virtual void visitProj		(Tree sig, int i, Tree s) 						{ visit(s); }
 	
 	// Tables

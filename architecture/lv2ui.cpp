@@ -111,6 +111,8 @@ public:
   virtual void addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step);
   virtual void addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step);
   virtual void addNumEntry(const char* label, float* zone, float init, float min, float max, float step);
+    
+  virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
 
   virtual void addHorizontalBargraph(const char* label, float* zone, float min, float max);
   virtual void addVerticalBargraph(const char* label, float* zone, float min, float max);
@@ -123,6 +125,7 @@ public:
   virtual void run();
 
   virtual void declare(float* zone, const char* key, const char* value);
+    
 };
 
 LV2UI::LV2UI(int maxvoices)
@@ -1017,6 +1020,7 @@ MTSTunings *LV2PluginUI::mts = 0;
 #line 1018 "lv2ui.cpp"
 
 std::list<GUI*> GUI::fGuiList;
+ztimedmap GUI::gTimedZoneMap;
 
 LV2QtGUI::LV2QtGUI(LV2PluginUI* plugui) :
   widget(NULL), uidsp(NULL), qtinterface(NULL),
@@ -1226,8 +1230,8 @@ public:
       addElem(label);
     }
   }
-
-  // -- passive widgets	
+    
+  // -- passive widgets
   virtual void addHorizontalBargraph(const char* label, FAUSTFLOAT* zone,
 				     FAUSTFLOAT min, FAUSTFLOAT max) 
   {
@@ -1240,7 +1244,9 @@ public:
     ui->addVerticalBargraph(label, zone, min, max);
     addElem(label);
   }
-
+    
+  virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
+ 
   virtual void declare(FAUSTFLOAT* zone, const char* key, const char* val)
   {
     // XXXFIXME: Faust's Qt GUI implementation handles [scale:log] and similar

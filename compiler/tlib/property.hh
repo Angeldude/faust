@@ -1,9 +1,31 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 #ifndef __PROPERTY__
 #define __PROPERTY__
 
 #include "tree.hh"
+#include "garbageable.hh"
 
-template<class P> class property
+template<class P> class property : public virtual Garbageable
 {
     Tree	fKey;
 
@@ -18,14 +40,14 @@ public:
     property () : fKey(tree(Node(unique("property_")))) {}
 
     property (const char* keyname) : fKey(tree(Node(keyname))) {}
-
+  
     void set(Tree t, const P& data)
     {
         P* p = access(t);
         if (p) {
             *p = data;
         } else {
-            t->setProperty(fKey, tree(Node(new P(data))));
+            t->setProperty(fKey, tree(Node((new GarbageablePtr<P>(data))->getPointer())));
         }
     }
 
@@ -48,8 +70,7 @@ public:
     }
 };
 
-
-template<> class property<Tree>
+template<> class property<Tree> : public virtual Garbageable
 {
     Tree	fKey;
 
@@ -81,8 +102,7 @@ public:
     }
 };
 
-
-template<> class property<int>
+template<> class property<int> : public virtual Garbageable
 {
     Tree	fKey;
 
@@ -114,8 +134,7 @@ public:
     }
 };
 
-
-template<> class property<double>
+template<> class property<double> : public virtual Garbageable
 {
     Tree	fKey;
 
@@ -146,7 +165,5 @@ public:
         t->clearProperty(fKey);
     }
 };
-
-
 
 #endif

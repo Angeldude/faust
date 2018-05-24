@@ -34,6 +34,7 @@ install:
 	install faust2eps $(dest)
 	install faust2faustvst $(dest)
 	install faust2firefox $(dest)
+	install faust2gen $(dest)
 	install faust2graph $(dest)
 	install faust2graphviewer $(dest)
 	install faust2ios $(dest)
@@ -41,7 +42,9 @@ install:
 	install faust2jackconsole $(dest)
 	install faust2jackinternal $(dest)
 	install faust2jackserver $(dest)
+	install faust2jackrust $(dest)
 	install faust2jaqt $(dest)
+	install faust2jaqtchain $(dest)
 	install faust2juce $(dest)
 	install faust2ladspa $(dest)
 	install faust2linuxunity $(dest)
@@ -53,12 +56,14 @@ install:
 	install faust2msp $(dest)
 	install faust2netjackconsole $(dest)
 	install faust2netjackqt $(dest)
+	install faust2nodejs $(dest)
 	install faust2octave $(dest)
 	install faust2owl $(dest)
 	install faust2paqt $(dest)
 	install faust2pdf $(dest)
 	install faust2plot $(dest)
 	install faust2png $(dest)
+	install faust2pure $(dest)
 	install faust2puredata $(dest)
 	install faust2osxiosunity $(dest)
 	install faust2raqt $(dest)
@@ -75,13 +80,17 @@ install:
 	install faust2unity $(dest)
 	install faust2vst $(dest)
 	install faust2vsti $(dest)
+	install faust2wasm $(dest)
 	install faust2w32max6 $(dest)
+	install faust2w64max6 $(dest)
 	install faust2w32msp $(dest)
 	install faust2w32puredata $(dest)
-	install faust2w32unity $(dest)
 	install faust2w32vst $(dest)
-	install faust2w64unity $(dest)
+	install faust2webaudio $(dest)
+	install faust2unitywin $(dest)
 	install faust2webaudioasm $(dest)
+	install faust2webaudiowasm $(dest)
+	install faust2webaudiowast $(dest)
 	install faustoptflags $(dest)
 	install faustpath $(dest)
 
@@ -107,6 +116,7 @@ uninstall:
 	rm -f $(dest)/faust2eps
 	rm -f $(dest)/faust2faustvst
 	rm -f $(dest)/faust2firefox
+	rm -f $(dest)/faust2gen
 	rm -f $(dest)/faust2graph
 	rm -f $(dest)/faust2graphviewer
 	rm -f $(dest)/faust2ios
@@ -114,7 +124,9 @@ uninstall:
 	rm -f $(dest)/faust2jackconsole
 	rm -f $(dest)/faust2jackinternal
 	rm -f $(dest)/faust2jackserver
+	rm -f $(dest)/faust2jackrust
 	rm -f $(dest)/faust2jaqt
+	rm -f $(dest)/faust2jaqtchain
 	rm -f $(dest)/faust2juce
 	rm -f $(dest)/faust2ladspa
 	rm -f $(dest)/faust2linuxunity
@@ -132,6 +144,7 @@ uninstall:
 	rm -f $(dest)/faust2pdf
 	rm -f $(dest)/faust2plot
 	rm -f $(dest)/faust2png
+	rm -f $(dest)/faust2pure
 	rm -f $(dest)/faust2puredata
 	rm -f $(dest)/faust2osxiosunity
 	rm -f $(dest)/faust2raqt
@@ -148,12 +161,16 @@ uninstall:
 	rm -f $(dest)/faust2unity
 	rm -f $(dest)/faust2vst
 	rm -f $(dest)/faust2vsti
+	rm -f $(dest)/faust2wasm
 	rm -f $(dest)/faust2w32max6
+	rm -f $(dest)/faust2w64max6
 	rm -f $(dest)/faust2w32msp
 	rm -f $(dest)/faust2w32puredata
-	rm -f $(dest)/faust2w32unity
 	rm -f $(dest)/faust2w32vst
-	rm -f $(dest)/faust2w64unity
+	rm -f $(dest)/faust2webaudio
+	rm -f $(dest)/faust2unitywin
 	rm -f $(dest)/faust2webaudioasm
+	rm -f $(dest)/faust2webaudiowasm
+	rm -f $(dest)/faust2webaudiowast
 	rm -f $(dest)/faustoptflags
 	rm -f $(dest)/faustpath

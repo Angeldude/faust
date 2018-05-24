@@ -108,6 +108,9 @@ class MapUI : public UI, public PathBuilder
             fPathZoneMap[buildPath(label)] = zone;
             fLabelZoneMap[label] = zone;
         }
+    
+        // -- soundfiles
+        virtual void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) {}
         
         // -- metadata declarations
         void declare(FAUSTFLOAT* zone, const char* key, const char* val)
@@ -137,13 +140,23 @@ class MapUI : public UI, public PathBuilder
         // map access 
         std::map<std::string, FAUSTFLOAT*>& getMap() { return fPathZoneMap; }
         
-        int getParamsCount() { return fPathZoneMap.size(); }
+        int getParamsCount() { return int(fPathZoneMap.size()); }
         
         std::string getParamAddress(int index)
         { 
             std::map<std::string, FAUSTFLOAT*>::iterator it = fPathZoneMap.begin();
             while (index-- > 0 && it++ != fPathZoneMap.end()) {}
             return (*it).first;
+        }
+    
+        std::string getParamAddress(FAUSTFLOAT* zone)
+        {
+            std::map<std::string, FAUSTFLOAT*>::iterator it = fPathZoneMap.begin();
+            do {
+                if ((*it).second == zone) return (*it).first;
+            }
+            while (it++ != fPathZoneMap.end());
+            return "";
         }
 };
 

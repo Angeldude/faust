@@ -4,6 +4,8 @@
 
 %{
 
+#include "global.hh"
+
 #include "tree.hh"
 #include "xtended.hh"
 #include "boxes.hh"
@@ -27,15 +29,6 @@ extern char* 		yytext;
 extern const char* 	yyfilename;
 extern int 			yylineno;
 extern int 			yyerr;
-extern Tree 		gResult;
-extern bool         gStripDocSwitch;
-extern bool         gLstDependenciesSwitch;
-extern bool         gLstDistributedSwitch;
-extern bool        	gLstMdocTagsSwitch;
-	
-extern map<Tree, set<Tree> > gMetaDataSet;
-extern vector<Tree>          gDocVector;
-extern tvec                  gWaveForm; 
 
 int yylex();
 
@@ -127,6 +120,8 @@ Tree unquote(char* str)
 
 %token HBARGRAPH
 %token VBARGRAPH
+%token SOUNDFILE
+
 %token ATTACH
 
 
@@ -189,6 +184,8 @@ Tree unquote(char* str)
 %token LIBRARY
 %token ENVIRONMENT
 %token WAVEFORM
+%token ENABLE
+%token CONTROL
 
 %token IPAR
 %token ISEQ
@@ -290,6 +287,8 @@ Tree unquote(char* str)
 %type <exp> vbargraph
 %type <exp> hbargraph
 
+%type <exp> soundfile
+
 %type <exp> rule
 %type <exp> rulelist
 
@@ -312,18 +311,18 @@ Tree unquote(char* str)
 
 %% /* grammar rules and actions follow */
 
-program         : stmtlist                              { $$ = $1; gResult = formatDefinitions($$); }
+program         : stmtlist 						{ $$ = $1; gGlobal->gResult = formatDefinitions($$); }
 				;
 
-stmtlist        : /*empty*/                             { $$ = nil; }
-				| stmtlist statement                    { $$ = cons ($2,$1); }
+stmtlist        : /*empty*/                     { $$ = gGlobal->nil; }
+				| stmtlist statement            { $$ = cons ($2,$1); }
 
-deflist         : /*empty*/                             { $$ = nil; }
-				| deflist definition                    { $$ = cons ($2,$1); }
+deflist         : /*empty*/                     { $$ = gGlobal->nil; }
+				| deflist definition            { $$ = cons ($2,$1); }
 				;
 
 
-reclist         : /*empty*/                             { $$ = nil; }
+reclist         : /*empty*/                             { $$ = gGlobal->nil; }
                 | reclist recinition                    { $$ = cons ($2,$1); }
                 ;
 
@@ -331,8 +330,8 @@ reclist         : /*empty*/                             { $$ = nil; }
 // 				| argument PAR vallist                  { $$ = cons ($1,$3); }
 // 				;
 // 
-vallist         : number                                { gWaveForm.push_back($1); }
-                | vallist PAR number                    { gWaveForm.push_back($3); }
+vallist         : number                              { gGlobal->gWaveForm.push_back($1); }
+                | vallist PAR number                  { gGlobal->gWaveForm.push_back($3); }
                 ;
 
 number			: INT   						{ $$ = boxInt(atoi(yytext)); }
@@ -345,12 +344,13 @@ number			: INT   						{ $$ = boxInt(atoi(yytext)); }
 				
 				
 statement       : IMPORT LPAR uqstring RPAR ENDDEF	   	{ $$ = importFile($3); }
-				| DECLARE name string  ENDDEF		   	{ declareMetadata($2,$3); $$ = nil; }
+				| DECLARE name string  ENDDEF		   	{ declareMetadata($2,$3); $$ = gGlobal->nil; }
+				| DECLARE name name string  ENDDEF		{ declareDefinitionMetadata($2,$3,$4); $$ = gGlobal->nil; }
 				| definition						   	{ $$ = $1; }
-				| BDOC doc EDOC						   	{ declareDoc($2); $$ = nil; /* cerr << "Yacc : doc : " << *$2 << endl; */ }
+				| BDOC doc EDOC						   	{ declareDoc($2); $$ = gGlobal->nil; /* cerr << "Yacc : doc : " << *$2 << endl; */ }
                 ;
 
-doc             : /* empty */						   	{ $$ = nil; }
+doc             : /* empty */						   	{ $$ = gGlobal->nil; }
 				| doc docelem						   	{ $$ = cons ($2,$1); }
 				;
 
@@ -382,9 +382,9 @@ lstattrlist		: /* empty */							{ }
 				| lstattrlist lstattrdef				{ }
 				;
 
-lstattrdef		: LSTDEPENDENCIES LSTEQ LSTQ lstattrval LSTQ	{ gLstDependenciesSwitch = $4; }
-				| LSTMDOCTAGS LSTEQ LSTQ lstattrval LSTQ		{ gStripDocSwitch = $4; gStripDocSwitch==true ? gStripDocSwitch=false : gStripDocSwitch=true; }
-				| LSTDISTRIBUTED LSTEQ LSTQ lstattrval LSTQ		{ gLstDistributedSwitch = $4; }
+lstattrdef		: LSTDEPENDENCIES LSTEQ LSTQ lstattrval LSTQ	{ gGlobal->gLstDependenciesSwitch = $4; }
+				| LSTMDOCTAGS LSTEQ LSTQ lstattrval LSTQ		{ gGlobal->gStripDocSwitch = $4; gGlobal->gStripDocSwitch==true ? gGlobal->gStripDocSwitch=false : gGlobal->gStripDocSwitch=true; }
+				| LSTDISTRIBUTED LSTEQ LSTQ lstattrval LSTQ		{ gGlobal->gLstDistributedSwitch = $4; }
 				;
 
 lstattrval		: LSTTRUE								{ $$ = true; }
@@ -395,12 +395,12 @@ docmtd          : BMETADATA name EMETADATA				{ $$ = $2; }
 				;
 
 definition		: defname LPAR arglist RPAR DEF expression ENDDEF	{ $$ = cons($1,cons($3,$6)); setDefProp($1, yyfilename, yylineno); }
-				| defname DEF expression ENDDEF		   	{ $$ = cons($1,cons(nil,$3)); setDefProp($1, yyfilename, yylineno);  }
-				| error ENDDEF				   		   	{ $$ = nil; yyerr++; }
+				| defname DEF expression ENDDEF		   	{ $$ = cons($1,cons(gGlobal->nil,$3));  setDefProp($1, yyfilename, yylineno); }
+				| error ENDDEF				   		   	{ $$ = gGlobal->nil; yyerr++; }
 				;
 
-recinition		: recname DEF expression ENDDEF		   	{ $$ = cons($1,cons(nil,$3)); setDefProp($1, yyfilename, yylineno); }
-                | error ENDDEF				   		   	{ $$ = nil; yyerr++; }
+recinition		: recname DEF expression ENDDEF		   	{ $$ = cons($1,cons(gGlobal->nil,$3)); setDefProp($1, yyfilename, yylineno); }
+                | error ENDDEF				   		   	{ $$ = gGlobal->nil; yyerr++; }
                 ;
 
 defname			: ident 								{ $$=$1; }
@@ -409,7 +409,7 @@ defname			: ident 								{ $$=$1; }
 recname			: DELAY1 ident 							{ $$=$2; }
                 ;
 
-params			: ident					   				{ $$ = cons($1,nil); }
+params			: ident					   				{ $$ = cons($1,gGlobal->nil); }
 				| params PAR ident				   		{ $$ = cons($3,$1); }
                 ;
 
@@ -428,7 +428,7 @@ infixexp		: infixexp ADD infixexp 	{ $$ = boxSeq(boxPar($1,$3),boxPrim2(sigAdd))
 				| infixexp MUL infixexp 	{ $$ = boxSeq(boxPar($1,$3),boxPrim2(sigMul)); }
 				| infixexp DIV infixexp 	{ $$ = boxSeq(boxPar($1,$3),boxPrim2(sigDiv)); }
                 | infixexp MOD infixexp     { $$ = boxSeq(boxPar($1,$3),boxPrim2(sigRem)); }
-                | infixexp POWOP infixexp   { $$ = boxSeq(boxPar($1,$3),gPowPrim->box()); }
+                | infixexp POWOP infixexp   { $$ = boxSeq(boxPar($1,$3),gGlobal->gPowPrim->box()); }
                 | infixexp FDELAY infixexp 	{ $$ = boxSeq(boxPar($1,$3),boxPrim2(sigFixDelay)); }
 				| infixexp DELAY1  			{ $$ = boxSeq($1,boxPrim1(sigDelay1)); }
 				| infixexp DOT ident  		{ $$ = boxAccess($1,$3); }
@@ -468,7 +468,7 @@ primitive		: INT   						{ $$ = boxInt(atoi(yytext)); }
 				| MEM   						{ $$ = boxPrim1(sigDelay1); }
 				| PREFIX   						{ $$ = boxPrim2(sigPrefix); }
 
-				| INTCAST   					{ $$ = boxPrim1(sigIntCast); }
+				| INTCAST                       { $$ = boxPrim1(sigIntCast); }
 				| FLOATCAST   					{ $$ = boxPrim1(sigFloatCast); }
 
 				| ADD							{ $$ = boxPrim2(sigAdd); }
@@ -493,32 +493,35 @@ primitive		: INT   						{ $$ = boxInt(atoi(yytext)); }
 				| NE							{ $$ = boxPrim2(sigNE); }
 
 				| ATTACH						{ $$ = boxPrim2(sigAttach); }
+                | ENABLE                        { $$ = boxPrim2(sigEnable); }
+                | CONTROL                       { $$ = boxPrim2(sigControl); }
 
-				| ACOS							{ $$ = gAcosPrim->box(); }
-				| ASIN							{ $$ = gAsinPrim->box(); }
-				| ATAN							{ $$ = gAtanPrim->box(); }
-				| ATAN2							{ $$ = gAtan2Prim->box(); }
-				| COS							{ $$ = gCosPrim->box(); }
-				| SIN							{ $$ = gSinPrim->box(); }
-				| TAN							{ $$ = gTanPrim->box(); }
 
-				| EXP							{ $$ = gExpPrim->box(); }
-				| LOG							{ $$ = gLogPrim->box(); }
-				| LOG10							{ $$ = gLog10Prim->box(); }
-                | POWOP                         { $$ = gPowPrim->box(); }
-                | POWFUN                        { $$ = gPowPrim->box(); }
-				| SQRT							{ $$ = gSqrtPrim->box(); }
+				| ACOS							{ $$ = gGlobal->gAcosPrim->box(); }
+				| ASIN							{ $$ = gGlobal->gAsinPrim->box(); }
+				| ATAN							{ $$ = gGlobal->gAtanPrim->box(); }
+				| ATAN2							{ $$ = gGlobal->gAtan2Prim->box(); }
+				| COS							{ $$ = gGlobal->gCosPrim->box(); }
+				| SIN							{ $$ = gGlobal->gSinPrim->box(); }
+				| TAN							{ $$ = gGlobal->gTanPrim->box(); }
 
-				| ABS							{ $$ = gAbsPrim->box(); }
-				| MIN							{ $$ = gMinPrim->box(); }
-				| MAX							{ $$ = gMaxPrim->box(); }
+				| EXP							{ $$ = gGlobal->gExpPrim->box(); }
+				| LOG							{ $$ = gGlobal->gLogPrim->box(); }
+				| LOG10							{ $$ = gGlobal->gLog10Prim->box(); }
+                | POWOP                         { $$ = gGlobal->gPowPrim->box(); }
+                | POWFUN                        { $$ = gGlobal->gPowPrim->box(); }
+				| SQRT							{ $$ = gGlobal->gSqrtPrim->box(); }
 
-				| FMOD							{ $$ = gFmodPrim->box(); }
-				| REMAINDER						{ $$ = gRemainderPrim->box(); }
+				| ABS							{ $$ = gGlobal->gAbsPrim->box(); }
+				| MIN							{ $$ = gGlobal->gMinPrim->box(); }
+				| MAX							{ $$ = gGlobal->gMaxPrim->box(); }
 
-				| FLOOR							{ $$ = gFloorPrim->box(); }
-				| CEIL							{ $$ = gCeilPrim->box(); }
-				| RINT							{ $$ = gRintPrim->box(); }
+				| FMOD							{ $$ = gGlobal->gFmodPrim->box(); }
+				| REMAINDER						{ $$ = gGlobal->gRemainderPrim->box(); }
+
+				| FLOOR							{ $$ = gGlobal->gFloorPrim->box(); }
+				| CEIL							{ $$ = gGlobal->gCeilPrim->box(); }
+				| RINT							{ $$ = gGlobal->gRintPrim->box(); }
 
 
 				| RDTBL 						{ $$ = boxPrim3(sigReadOnlyTable); }
@@ -542,8 +545,7 @@ primitive		: INT   						{ $$ = boxInt(atoi(yytext)); }
                 | COMPONENT LPAR uqstring RPAR  { $$ = boxComponent($3); }
                 | LIBRARY LPAR uqstring RPAR    { $$ = boxLibrary($3); }
                 | ENVIRONMENT LBRAQ stmtlist RBRAQ { $$ = boxWithLocalDef(boxEnvironment(),formatDefinitions($3)); }
-                | WAVEFORM LBRAQ vallist RBRAQ  { $$ = boxWaveform(gWaveForm); gWaveForm.clear(); }
-
+                | WAVEFORM LBRAQ vallist RBRAQ  { $$ = boxWaveform(gGlobal->gWaveForm); gGlobal->gWaveForm.clear(); }
 				| button						{ $$ = $1; }
 				| checkbox						{ $$ = $1; }
 				| vslider						{ $$ = $1; }
@@ -554,6 +556,7 @@ primitive		: INT   						{ $$ = boxInt(atoi(yytext)); }
 				| tgroup						{ $$ = $1; }
 				| vbargraph						{ $$ = $1; }
 				| hbargraph						{ $$ = $1; }
+				| soundfile						{ $$ = $1; }
 
 				| fpar							{ $$ = $1; }
 				| fseq							{ $$ = $1; }
@@ -574,7 +577,7 @@ name			: IDENT							{ $$ = tree(yytext); setUseProp($$, yyfilename, yylineno); 
 
 
 
-arglist			: argument						{ $$ = cons($1,nil); }
+arglist			: argument						{ $$ = cons($1,gGlobal->nil); }
 				| arglist PAR argument			{ $$ = cons($3,$1); }
 				;
 
@@ -667,27 +670,30 @@ vbargraph		: VBARGRAPH LPAR uqstring PAR argument PAR argument RPAR
 hbargraph		: HBARGRAPH LPAR uqstring PAR argument PAR argument RPAR
 												{ $$ = boxHBargraph($3,$5,$7); }
 				;
+soundfile		: SOUNDFILE LPAR uqstring PAR argument RPAR
+												{ $$ = boxSoundfile($3,$5); }
+				;
 
 /* Description of foreign functions */
 /* float sinhf|sinh|sinhl(float) */
 
-signature		: type fun LPAR typelist RPAR               { $$ = cons($1, cons(cons($2,cons($2,cons($2,nil))), $4)); }
-                | type fun OR fun LPAR typelist RPAR        { $$ = cons($1, cons(cons($2,cons($4,cons($4,nil))), $6)); }
-                | type fun OR fun OR fun LPAR typelist RPAR	{ $$ = cons($1, cons(cons($2,cons($4,cons($6,nil))), $8)); }
+signature		: type fun LPAR typelist RPAR               { $$ = cons($1, cons(cons($2,cons($2,cons($2,gGlobal->nil))), $4)); }
+                | type fun OR fun LPAR typelist RPAR        { $$ = cons($1, cons(cons($2,cons($4,cons($4,gGlobal->nil))), $6)); }
+                | type fun OR fun OR fun LPAR typelist RPAR	{ $$ = cons($1, cons(cons($2,cons($4,cons($6,gGlobal->nil))), $8)); }
 
-                | type fun LPAR RPAR                        { $$ = cons($1, cons(cons($2,cons($2,cons($2,nil))), nil)); }
-                | type fun OR fun LPAR RPAR                 { $$ = cons($1, cons(cons($2,cons($4,cons($4,nil))), nil)); }
-                | type fun OR fun OR fun LPAR RPAR			{ $$ = cons($1, cons(cons($2,cons($4,cons($6,nil))), nil)); }
+                | type fun LPAR RPAR                        { $$ = cons($1, cons(cons($2,cons($2,cons($2,gGlobal->nil))), gGlobal->nil)); }
+                | type fun OR fun LPAR RPAR                 { $$ = cons($1, cons(cons($2,cons($4,cons($4,gGlobal->nil))), gGlobal->nil)); }
+                | type fun OR fun OR fun LPAR RPAR			{ $$ = cons($1, cons(cons($2,cons($4,cons($6,gGlobal->nil))), gGlobal->nil)); }
                 ;
 
 fun				: IDENT							{ $$ = tree(yytext); }
 				;
 
-typelist		: type							{ $$ = cons($1,nil); }
+typelist		: type							{ $$ = cons($1,gGlobal->nil); }
 				| typelist PAR type				{ $$ = cons($3,$1); }
                 ;
 
-rulelist		: rule							{ $$ = cons($1,nil); }
+rulelist		: rule							{ $$ = cons($1,gGlobal->nil); }
 				| rulelist rule					{ $$ = cons($2,$1); }
 				;
 
@@ -695,7 +701,7 @@ rule			: LPAR arglist RPAR ARROW expression ENDDEF
 												{ $$ = cons($2,$5); }
 				;
 
-type			: INTCAST						{ $$ = tree(0); }
+type			: INTCAST                       { $$ = tree(0); }
 				| FLOATCAST						{ $$ = tree(1); }
 				;
 

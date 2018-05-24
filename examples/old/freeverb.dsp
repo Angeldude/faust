@@ -60,8 +60,8 @@ allpasstuningL4 = 225;
 // Wet : reverberated signal
 
 dampSlider      = hslider("Damp",0.5, 0, 1, 0.025)*scaledamp;
-roomsizeSlider  = hslider("RoomSize", 0.5, 0, 1, 0.025)*scaleroom + offsetroom;
-wetSlider       = hslider("Wet", 0.3333, 0, 1, 0.025);
+roomsizeSlider  = hslider("RoomSize", 0.9, 0, 1, 0.025)*scaleroom + offsetroom;
+wetSlider       = hslider("Wet", 0.9, 0, 1, 0.025);
 combfeed        = roomsizeSlider;
 
 
@@ -100,7 +100,6 @@ stereoReverb(fb1, fb2, damp, spread)
 //----------------------------------------------------------------
 
 fxctrl(g,w,Fx) =  _,_ <: (*(g),*(g) : Fx : *(w),*(w)), *(1-w), *(1-w) +> _,_;
-
 
 // Freeverb
 //---------

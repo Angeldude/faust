@@ -44,7 +44,6 @@
 
 #include <iostream>
 #include <fstream>
-
 #include <libgen.h>
 
 #endif
@@ -212,7 +211,6 @@ class UI
 	bool stopped() 	{ return fStopped; }
 };
 
-
 /**
  * User Interface Item: abstract definition
  */
@@ -230,7 +228,6 @@ class uiItem
 		ui->registerZone(zone, this); 
 	}
 	
-	
   public :
 	virtual ~uiItem() {}
 	
@@ -246,7 +243,6 @@ class uiItem
 	float			cache()			{ return fCache; }
 	virtual void 	reflectZone() 	= 0;	
 };
-
 
 /**
  * Callback Item
@@ -282,7 +278,6 @@ inline void UI::updateZone(float* z)
 	}
 }
 
-
 /**
  * Update all user items not up to date
  */
@@ -304,7 +299,6 @@ inline void UI::addCallback(float* zone, uiCallback foo, void* data)
 	new uiCallbackItem(this, zone, foo, data); 
 };
 
-
 /******************************************************************************
 *******************************************************************************
 
@@ -324,11 +318,10 @@ inline void UI::addCallback(float* zone, uiCallback foo, void* data)
 #define kBoxMode 1
 #define kTabMode 2
 
-
 class GTKUI : public UI
 {
  private :
-  static bool			fInitialized;
+  static bool		fInitialized;
   static list<UI*>	fGuiList;
 	
  protected :
@@ -341,7 +334,6 @@ class GTKUI : public UI
 	GtkWidget* addWidget(const char* label, GtkWidget* w);
 	virtual void pushBox(int mode, GtkWidget* w);
 
-		
  public :
 	
  	static const gboolean expand = TRUE;
@@ -349,7 +341,7 @@ class GTKUI : public UI
 	static const gboolean homogene = FALSE;
 		 
 	GTKUI(char * name, int* pargc, char*** pargv);
-        GTKUI(){}
+    GTKUI(){}
 	
 	// -- layout groups
 	
@@ -379,11 +371,9 @@ class GTKUI : public UI
 	virtual void show();
 	virtual void run();
 
-        virtual void declare(float* zone, const char* key, const char* value) {}
+    virtual void declare(float* zone, const char* key, const char* value) {}
 
 };
-
-
 
 /******************************************************************************
 *******************************************************************************
@@ -399,8 +389,6 @@ class GTKUI : public UI
 bool		GTKUI::fInitialized = false;
 list<UI*>	UI::fGuiList;
 
-
-
 static gint delete_event( GtkWidget *widget, GdkEvent *event, gpointer data )
 {
     return FALSE; 
@@ -411,10 +399,9 @@ static void destroy_event( GtkWidget *widget, gpointer data )
     gtk_main_quit ();
 }
 
-		 
 GTKUI::GTKUI(char * name, int* pargc, char*** pargv) 
 {
-        if (!fInitialized){
+    if (!fInitialized) {
 		gtk_init(pargc, pargv);
 		fInitialized = true;
 	}
@@ -447,7 +434,6 @@ void GTKUI::closeBox()
 	--fTop;
 	assert(fTop >= 0);
 }
-
 
 // les differentes boites
 
@@ -543,7 +529,6 @@ void GTKUI::addButton(const char* label, float* zone)
 	
 	gtk_signal_connect (GTK_OBJECT (button), "pressed", GTK_SIGNAL_FUNC (uiButton::pressed), (gpointer) c);
 	gtk_signal_connect (GTK_OBJECT (button), "released", GTK_SIGNAL_FUNC (uiButton::released), (gpointer) c);
-
 }
 
 // ---------------------------	Toggle Buttons ---------------------------
@@ -578,7 +563,6 @@ void GTKUI::addToggleButton(const char* label, float* zone)
 	gtk_signal_connect (GTK_OBJECT (button), "toggled", GTK_SIGNAL_FUNC (uiToggleButton::toggled), (gpointer) c);
 }
 
-
 // ---------------------------	Check Button ---------------------------
 
 struct uiCheckButton : public uiItem
@@ -610,7 +594,6 @@ void GTKUI::addCheckButton(const char* label, float* zone)
 	uiCheckButton* c = new uiCheckButton(this, zone, GTK_TOGGLE_BUTTON(button));
 	gtk_signal_connect (GTK_OBJECT (button), "toggled", GTK_SIGNAL_FUNC(uiCheckButton::toggled), (gpointer) c);
 }
-
 
 // ---------------------------	Adjustmenty based widgets ---------------------------
 
@@ -683,7 +666,6 @@ void GTKUI::addHorizontalSlider(const char* label, float* zone, float init, floa
 	closeBox();
 }
 
-
 // ------------------------------ Num Entry -----------------------------------
 
 void GTKUI::addNumEntry(const char* label, float* zone, float init, float min, float max, float step)
@@ -706,7 +688,6 @@ void GTKUI::addNumEntry(const char* label, float* zone, float init, float min, f
 
 // ==========================	passive widgets ===============================
 
-
 // ------------------------------ Progress Bar -----------------------------------
 
 struct uiBargraph : public uiItem
@@ -728,8 +709,6 @@ struct uiBargraph : public uiItem
 	}
 };
 
-	
-
 void GTKUI::addVerticalBargraph(const char* label, float* zone, float lo, float hi)
 {
 	GtkWidget* pb = gtk_progress_bar_new();
@@ -740,7 +719,6 @@ void GTKUI::addVerticalBargraph(const char* label, float* zone, float lo, float 
 	addWidget(label, pb);
 	closeBox();
 }
-	
 
 void GTKUI::addHorizontalBargraph(const char* label, float* zone, float lo, float hi)
 {
@@ -752,7 +730,6 @@ void GTKUI::addHorizontalBargraph(const char* label, float* zone, float lo, floa
 	addWidget(label, pb);
 	closeBox();
 }
-
 
 // ------------------------------ Num Display -----------------------------------
 
@@ -780,7 +757,6 @@ struct uiNumDisplay : public uiItem
 		gtk_label_set_text(fLabel, s);
 	}
 };
-	
 
 void GTKUI::addNumDisplay(const char* label, float* zone, int precision )
 {
@@ -790,7 +766,6 @@ void GTKUI::addNumDisplay(const char* label, float* zone, int precision )
 	addWidget(label, lw);
 	closeBox();
 }
-
 
 // ------------------------------ Text Display -----------------------------------
 
@@ -823,7 +798,6 @@ struct uiTextDisplay : public uiItem
 		gtk_label_set_text(fLabel, fNames[idx]); 
 	}
 };
-	
 
 void GTKUI::addTextDisplay(const char* label, float* zone, const char* names[], float lo, float hi )
 {
@@ -834,15 +808,12 @@ void GTKUI::addTextDisplay(const char* label, float* zone, const char* names[], 
 	closeBox();
 }
 
-
-
 void GTKUI::show() 
 {
 	assert(fTop == 0);
 	gtk_widget_show  (fBox[0]);
 	gtk_widget_show  (fWindow);
 }
-
 
 /**
  * Update all user items reflecting zone z
@@ -854,7 +825,6 @@ static gboolean callUpdateAllGuis(gpointer)
 	return TRUE;
 }
 
-
 void GTKUI::run() 
 {
 	assert(fTop == 0);
@@ -864,7 +834,6 @@ void GTKUI::run()
 	gtk_main ();
 	stop();
 }
-
 
 #else // MAKE_GUI
 
@@ -959,7 +928,6 @@ class uiItem
 		ui->registerZone(zone, this); 
 	}
 	
-	
   public :
 
 	virtual ~uiItem() {}
@@ -997,7 +965,6 @@ struct uiCallbackItem : public uiItem
 	}
 };
 
-
 /**
  * Update all user items reflecting zone z
  */
@@ -1010,7 +977,6 @@ inline void UI::updateZone(float* z)
 		if ((*c)->cache() != v) (*c)->reflectZone();
 	}
 }
-
 
 /**
  * Update all user items not up to date
@@ -1035,7 +1001,6 @@ inline void UI::addCallback(float* zone, uiCallback foo, void* data)
 
 #endif // MAKE_GUI
 
-
 /******************************************************************************
 *******************************************************************************
 
@@ -1043,10 +1008,6 @@ inline void UI::addCallback(float* zone, uiCallback foo, void* data)
 
 *******************************************************************************
 *******************************************************************************/
-
-
-
-
 
 //----------------------------------------------------------------
 //  définition du processeur de signal
@@ -1071,7 +1032,6 @@ class dsp {
     }
 
 };
-		
 
 //----------------------------------------------------------------------------
 // 	FAUST generated code
@@ -1098,7 +1058,7 @@ public:
 
 SNDRTGTKUI::SNDRTGTKUI(char * name, GtkDialog *window) 
 {
-        containsUI=false;
+    containsUI = false;
 
 	fWindow = GTK_WIDGET(GTK_WINDOW(window));
 	fTop = 0;
@@ -1110,7 +1070,7 @@ SNDRTGTKUI::SNDRTGTKUI(char * name, GtkDialog *window)
 void SNDRTGTKUI::localRun(){
   assert(fTop == 0);
 
-  if(!containsUI)
+  if (!containsUI)
     return;
 
   gtk_widget_show  (fBox[0]);
@@ -1132,8 +1092,6 @@ extern "C" int containsUI(SNDRTGTKUI* ui){
 }
 
 #endif
-
-		
 
 extern "C" dsp* newDsp() 									{ return new mydsp(); }
 extern "C" void deleteDsp(dsp* self) 						{ delete self; }

@@ -1,9 +1,31 @@
+/************************************************************************
+ ************************************************************************
+ FAUST compiler
+ Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+ ---------------------------------------------------------------------
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 #include "environment.hh"
 #include "errormsg.hh"
 #include "boxes.hh"
 #include "ppbox.hh"
 #include "names.hh"
-
+#include "global.hh"
+#include "exception.hh"
 
 //-----------------------new environment management----------------------------
 //
@@ -14,8 +36,6 @@
 // in a layer is allowed but generate a warning when the definition is
 // different
 //-----------------------------------------------------------------------------
-
-
 
 /**
  * Push a new (unique) empty layer (where multiple definitions can be stored)
@@ -28,8 +48,6 @@ static Tree pushNewLayer(Tree lenv)
     return tree(unique("ENV_LAYER"), lenv);
 }
 
-
-
 /**
  * Push a new environment barrier on top of an existing environment so
  * that searchIdDef (used by the pattern matcher) will not look after
@@ -38,13 +56,11 @@ static Tree pushNewLayer(Tree lenv)
  * @param lenv the old environment
  * @return the new environment
 */
-Sym BARRIER = symbol ("BARRIER");
 
 Tree pushEnvBarrier(Tree lenv)
 {
-    return tree(BARRIER, lenv);
+    return tree(gGlobal->BARRIER, lenv);
 }
-
 
 /**
  * Test if the environment is a barrier (or nil) so
@@ -55,9 +71,8 @@ Tree pushEnvBarrier(Tree lenv)
 */
 bool isEnvBarrier(Tree lenv)
 {
-    return isNil(lenv) || (lenv->node() == Node(BARRIER));
+    return isNil(lenv) || (lenv->node() == Node(gGlobal->BARRIER));
 }
-
 
 /**
  * Add a definition (as a property) to the current top level layer. Check
@@ -74,15 +89,14 @@ static void addLayerDef(Tree id, Tree def, Tree lenv)
         if (def == olddef) {
             //evalwarning(getDefFileProp(id), getDefLineProp(id), "equivalent re-definitions of", id);
         } else {
-            fprintf(stderr, "%s:%d: ERROR: redefinition of symbols are not allowed : ", getDefFileProp(id), getDefLineProp(id));
-            print(id,stderr);
-            fprintf(stderr, " is already defined in file \"%s\" line %d \n", getDefFileProp(id), getDefLineProp(id));
-            gErrorCount++;
+            stringstream error;
+            error << getDefFileProp(id) << ':' << getDefLineProp(id) << " ERROR : redefinition of symbols are not allowed : " << boxpp(id) << endl;
+            gGlobal->gErrorCount++;
+            throw faustexception(error.str());
         }
     }
     setProperty(lenv, id, def);
 }
-
 
 /**
  * Push a new layer and add a single definition.
@@ -98,7 +112,6 @@ Tree pushValueDef(Tree id, Tree def, Tree lenv)
     return lenv2;
 }
 
-
 /**
  * Push a new layer with multiple definitions creating the appropriate closures
  * @param ldefs list of pairs (symbol id x definition) to be binded to the symbol id
@@ -113,7 +126,7 @@ Tree pushMultiClosureDefs(Tree ldefs, Tree visited, Tree lenv)
         Tree def = hd(ldefs);
         Tree id = hd(def);
         Tree rhs= tl(def);
-        Tree cl = closure(tl(def),nil,visited,lenv2);
+        Tree cl = closure(tl(def),gGlobal->nil,visited,lenv2);
         stringstream s; s << boxpp(id);
         if (!isBoxCase(rhs)) setDefNameProperty(cl,s.str());
         addLayerDef( id, cl, lenv2 );
@@ -121,7 +134,6 @@ Tree pushMultiClosureDefs(Tree ldefs, Tree visited, Tree lenv)
     }
     return lenv2;
 }
-
 
 /**
  * Search the environment (until first barrier) for
@@ -183,7 +195,7 @@ Tree copyEnvReplaceDefs(Tree anEnv, Tree ldefs, Tree visited, Tree curEnv)
         Tree def = hd(ldefs);
         Tree id = hd(def);
         Tree rhs= tl(def);
-        Tree cl = closure(rhs,nil,visited,curEnv);
+        Tree cl = closure(rhs,gGlobal->nil,visited,curEnv);
         stringstream s; s << boxpp(id);
         if (!isBoxCase(rhs)) setDefNameProperty(cl,s.str());
         setProperty(copyEnv, id, cl);

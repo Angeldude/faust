@@ -1,12 +1,39 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+    Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
+
 //------------------------------------
 // generation of an xml description
 //------------------------------------
+
 #include <map>
 #include <set>
 #include <string>
 
 #include "description.hh"
+#include "compatibility.hh"
 #include "Text.hh"
+#include "exception.hh"
+#include "global.hh"
+
+using namespace std;
 
 /**
  * Extracts metdata from a label : 'vol [unit: dB]' -> 'vol' + metadata
@@ -21,7 +48,7 @@ void extractMetadata(const string& fulllabel, string& label, map<string, set<str
         char c = fulllabel[i];
         switch (state) {
             case kLabel :
-                assert (deep == 0);
+                faustassert(deep == 0);
                 switch (c) {
                     case '\\' : state = kEscape1; break;
                     case '[' : state = kKey; deep++; break;
@@ -45,7 +72,7 @@ void extractMetadata(const string& fulllabel, string& label, map<string, set<str
                 break;
 
             case kKey :
-                assert (deep > 0);
+                faustassert(deep > 0);
                 switch (c) {
                     case '\\' :  state = kEscape2;
                                 break;
@@ -75,7 +102,7 @@ void extractMetadata(const string& fulllabel, string& label, map<string, set<str
                 break;
 
             case kValue :
-                assert (deep > 0);
+                faustassert(deep > 0);
                 switch (c) {
                     case '\\' : state = kEscape3;
                                 break;
@@ -98,8 +125,11 @@ void extractMetadata(const string& fulllabel, string& label, map<string, set<str
                 }
                 break;
 
-            default :
-                cerr << "ERROR unrecognized state " << state << endl;
+			default : {
+                stringstream error;
+                error << "ERROR unrecognized state " << state << endl;
+                gGlobal->gErrorMsg = error.str();
+            }
         }
     }
     label = rmWhiteSpaces(label);
@@ -110,12 +140,11 @@ void extractMetadata(const string& fulllabel, string& label, map<string, set<str
 string extractName(Tree fulllabel)
 {
     string name;
-    map<string, set<string> >   metadata;
+    map<string, set<string> > metadata;
 
     extractMetadata(tree2str(fulllabel), name, metadata);
     return name;
 }
-
 
 /**
  * removes enclosing quotes and transforms '<', '>' and '&' characters
@@ -147,7 +176,7 @@ void Description::print(int n, ostream& fout)
 {
 	list<string>::iterator 	s;
 	list<int>::iterator 	t;
-
+   
 	tab(n,fout); fout << "<faust>";
 
 		tab(n+1,fout);	fout << "<name>" 		<< xmlize(fName) 		<< "</name>";
@@ -184,8 +213,8 @@ void Description::print(int n, ostream& fout)
 
 			// widget layout
 			tab(n+2,fout);	fout << "<layout>";
-				for (	t = fLayoutTabs.begin(), s = fLayoutLines.begin();
-						s != fLayoutLines.end(); t++, s++) {
+				for (t = fLayoutTabs.begin(), s = fLayoutLines.begin();
+                    s != fLayoutLines.end(); t++, s++) {
 					tab(n+3+*t, fout); fout << *s;
 				}
 			tab(n+2,fout);	fout << "</layout>";
@@ -194,14 +223,12 @@ void Description::print(int n, ostream& fout)
 
 
 	tab(n,fout); fout << "</faust>" << endl;
-
 }
 
 void Description::ui(Tree t)
 {
 	addGroup(0,t);
 }
-
 
 void Description::addGroup(int level, Tree t)
 {
@@ -210,8 +237,8 @@ void Description::addGroup(int level, Tree t)
 
 	if (isUiFolder(t, label, elements)) {
 
-		const int		orient = tree2int(left(label));
-
+		const int orient = tree2int(left(label));
+	
 		addLayoutLine(level, subst("<group type=\"$0\">", groupnames[orient]));
         addLayoutLine(level+1, subst("<label>$0</label>", checkNullLabel(t, xmlize(tree2str(right(label))), false) ));
         while (!isNil(elements)) {
@@ -226,10 +253,7 @@ void Description::addGroup(int level, Tree t)
 		addLayoutLine(level, subst("<widgetref id=\"$0\" />", T(w)));
 
 	} else {
-
-		fprintf(stderr, "error in user interface generation 2\n");
-		exit(1);
-
+	     throw faustexception("ERROR in user interface generation\n");
 	}
 }
 
@@ -245,16 +269,16 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 
 	// add an active widget description
 
-	if ( isSigButton(sig, path) ) 					{
+	if (isSigButton(sig, path)) 					{
 
 		fWidgetID++;
 		fActiveWidgetCount++;
 		addActiveLine(subst("<widget type=\"button\" id=\"$0\">", T(fWidgetID)));
-            addActiveLine(subst("\t<label>$0</label>", checkNullLabel(sig, xmlize(tree2str(label)), true)  ));
-			addActiveLine(subst("\t<varname>$0</varname>", tree2str(varname)));
+        addActiveLine(subst("\t<label>$0</label>", checkNullLabel(sig, xmlize(tree2str(label)), true)  ));
+        addActiveLine(subst("\t<varname>$0</varname>", tree2str(varname)));
 		addActiveLine("</widget>");
 
-	} else if ( isSigCheckbox(sig, path) ) 			{
+	} else if (isSigCheckbox(sig, path)) 			{
 
 		fWidgetID++;
 		fActiveWidgetCount++;
@@ -263,7 +287,7 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 			addActiveLine(subst("\t<varname>$0</varname>", tree2str(varname)));
 		addActiveLine("</widget>");
 
-	} else if ( isSigVSlider(sig, path,c,x,y,z) )	{
+	} else if (isSigVSlider(sig, path,c,x,y,z))     {
 
 		fWidgetID++;
 		fActiveWidgetCount++;
@@ -276,7 +300,7 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 			addActiveLine(subst("\t<step>$0</step>", 		T(tree2double(z))));
 		addActiveLine("</widget>");
 
-	} else if ( isSigHSlider(sig, path,c,x,y,z) )	{
+	} else if (isSigHSlider(sig, path,c,x,y,z))     {
 
 		fWidgetID++;
 		fActiveWidgetCount++;
@@ -289,7 +313,7 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 			addActiveLine(subst("\t<step>$0</step>", 		T(tree2double(z))));
 		addActiveLine("</widget>");
 
-	} else if ( isSigNumEntry(sig, path,c,x,y,z) )	{
+	} else if (isSigNumEntry(sig, path,c,x,y,z))	{
 
 		fWidgetID++;
 		fActiveWidgetCount++;
@@ -302,10 +326,18 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 			addActiveLine(subst("\t<step>$0</step>", 		T(tree2double(z))));
 		addActiveLine("</widget>");
 
+	} else if (isSigSoundfile(sig, path))	{
 
-	// add a passive widget description
+		fWidgetID++;
+		fActiveWidgetCount++;
+		addActiveLine(subst("<widget type=\"nentry\" id=\"$0\">", T(fWidgetID)));
+            addActiveLine(subst("\t<label>$0</label>", 		checkNullLabel(sig, xmlize(tree2str(label)), true) ));
+			addActiveLine(subst("\t<varname>$0</varname>", 	tree2str(varname)));
+		addActiveLine("</widget>");
 
-	} else if ( isSigVBargraph(sig,path,x,y,z) )	{
+    // add a passive widget description
+
+	} else if (isSigVBargraph(sig,path,x,y,z))      {
 
 		fWidgetID++;
 		fPassiveWidgetCount++;
@@ -316,7 +348,7 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 			addPassiveLine(subst("\t<max>$0</max>", 		T(tree2double(y))));
 		addPassiveLine("</widget>");
 
-	} else if ( isSigHBargraph(sig,path,x,y,z) )	{
+	} else if (isSigHBargraph(sig,path,x,y,z))      {
 
 		fWidgetID++;
 		fPassiveWidgetCount++;
@@ -328,12 +360,9 @@ int Description::addWidget(Tree label, Tree varname, Tree sig)
 		addPassiveLine("</widget>");
 
 	} else {
-		fprintf(stderr, "Error describing widget : unrecognized expression\n");
-		exit(1);
+        throw faustexception("ERROR describing widget : unrecognized expression\n");
 	}
 
 	return fWidgetID;
 }
-
-
 

@@ -1,6 +1,9 @@
 
-
 <script>
+    
+'use strict';
+
+// Faust part
 
 var isWebKitAudio = (typeof (webkitAudioContext) !== "undefined");
 var audio_context = (isWebKitAudio) ? new webkitAudioContext() : new AudioContext();
@@ -26,10 +29,10 @@ function keyOn(channel, pitch, velocity)
     }
 }
 
-function keyOff(channel, pitch)
+function keyOff(channel, pitch, velocity)
 {
     if (DSP_poly) {
-        DSP_poly.keyOff(channel, pitch);
+        DSP_poly.keyOff(channel, pitch, velocity);
     }
 }
 
@@ -53,13 +56,11 @@ function midiMessageReceived(ev)
     var channel = ev.data[0] & 0xf;
     var data1 = ev.data[1];
     var data2 = ev.data[2];
-    
-    //console.log(ev);
-
+  
     if (channel === 9) {
         return;
     } else if (cmd === 8 || ((cmd === 9) && (data2 === 0))) { 
-        keyOff(channel, data1);
+        keyOff(channel, data1, data2);
     } else if (cmd === 9) {
         keyOn(channel, data1, data2);
     } else if (cmd === 11) {
@@ -77,7 +78,7 @@ function onerrorcallback(error)
 function onsuccesscallbackJazz(access) 
 {
     var inputs = access.getInputs();
-    for (var i = 0; i <inputs.length; i++) {
+    for (var i = 0; i < inputs.length; i++) {
         var input = access.getInput(inputs[i]);
         midi_input.push(input);
         input.onmessage = midiMessageReceived;
@@ -97,7 +98,7 @@ function activateMIDIInput()
 {
     console.log("activateMIDIInput");
     if (typeof (navigator.requestMIDIAccess) !== "undefined") {
-        if (navigator.requestMIDIAccess() != undefined) {
+        if (navigator.requestMIDIAccess() !== undefined) {
             navigator.requestMIDIAccess().then(onsuccesscallbackStandard, onerrorcallback);
         } else{
             navigator.requestMIDIAccess(onsuccesscallbackJazz, onerrorcallback);
@@ -116,9 +117,10 @@ function activateAudioInput()
     }
    
     if (navigator.getUserMedia) {
-        navigator.getUserMedia({audio:true}, getDevice, function(e) {
+        navigator.getUserMedia({audio: { echoCancellation: false }}}, getDevice, function(e) {
                 alert('Error getting audio input');
                 console.log(e);
+                audio_input = null;
         });
     } else {
         alert('Audio input API not available');

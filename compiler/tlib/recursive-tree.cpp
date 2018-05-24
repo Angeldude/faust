@@ -19,13 +19,13 @@
  ************************************************************************
  ************************************************************************/
 
-
-
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+
 #include "tlib.hh"
+#include "exception.hh"
+#include "global.hh"
 
 // Declaration of implementation
 static Tree calcDeBruijn2Sym (Tree t);
@@ -33,16 +33,6 @@ static Tree substitute(Tree t, int n, Tree id);
 static Tree calcsubstitute(Tree t, int level, Tree id);
 static Tree liftn(Tree t, int threshold);
 static Tree calcliftn(Tree t, int threshold);
-
-// recursive trees
-
-Sym 	DEBRUIJN 	= symbol ("DEBRUIJN");
-Sym 	DEBRUIJNREF = symbol ("DEBRUIJNREF");
-Sym 	SUBSTITUTE  = symbol ("SUBSTITUTE");
-
-Sym 	SYMREC 		= symbol ("SYMREC");
-Sym 	SYMRECREF 	= symbol ("SYMRECREF");
-Sym 	SYMLIFTN 	= symbol ("LIFTN");
 
 //Tree	NOVAR		= tree("NOVAR");
 
@@ -53,64 +43,61 @@ Sym 	SYMLIFTN 	= symbol ("LIFTN");
 // de Bruijn declaration of a recursive tree
 Tree rec(Tree body)
 {
-	return tree(DEBRUIJN, body);
+	return tree(gGlobal->DEBRUIJN, body);
 }
 
 bool isRec(Tree t, Tree& body)
 {
-	return isTree(t, DEBRUIJN, body);
+	return isTree(t, gGlobal->DEBRUIJN, body);
 }
 
 Tree ref(int level)
 {
-	assert(level > 0);
-	return tree(DEBRUIJNREF, tree(level));	// reference to enclosing recursive tree starting from 1
+	faustassert(level > 0);
+	return tree(gGlobal->DEBRUIJNREF, tree(level));	// reference to enclosing recursive tree starting from 1
 }
 
 bool isRef(Tree t, int& level)
 {
 	Tree	u;
 
-	if (isTree(t, DEBRUIJNREF, u)) {
+	if (isTree(t, gGlobal->DEBRUIJNREF, u)) {
 		return isInt(u->node(), &level);
 	} else {
 		return false;
 	}
 }
 
-
 //-----------------------------------------------------------------------------------------
 // Recursive tree in symbolic notation (using a recursive definition property)
 //-----------------------------------------------------------------------------------------
-Tree RECDEF = tree(symbol("RECDEF"));
 
 // declaration of a recursive tree using a symbolic variable
 Tree rec(Tree var, Tree body)
 {
-    Tree t = tree(SYMREC, var);
-    t->setProperty(RECDEF, body);
+    Tree t = tree(gGlobal->SYMREC, var);
+    t->setProperty(gGlobal->RECDEF, body);
     return t;
 }
 
 bool isRec(Tree t, Tree& var, Tree& body)
 {
-    if (isTree(t, SYMREC, var)) {
-        body = t->getProperty(RECDEF);
+    if (isTree(t, gGlobal->SYMREC, var)) {
+        body = t->getProperty(gGlobal->RECDEF);
         return true;
     } else {
         return false;
     }
 }
 
-
 Tree ref(Tree id)
 {
-	return tree(SYMREC, id);			// reference to a symbolic id
+	return tree(gGlobal->SYMREC, id);			// reference to a symbolic id
 }
 
 bool isRef(Tree t, Tree& v)
 {
-	return isTree(t, SYMREC, v);
+	return isTree(t, gGlobal->SYMREC, v);
 }
 
 //-----------------------------------------------------------------------------------------
@@ -118,19 +105,21 @@ bool isRef(Tree t, Tree& v)
 // Les references symboliques compte pour zero ce qui veut dire qu'un arbre d'aperture
 // 0 ne compte aucun reference de bruijn libres.
 
-int CTree::calcTreeAperture( const Node& n, const tvec& br  )
+int CTree::calcTreeAperture( const Node& n, const tvec& br )
 {
-	int x;
-	if (n == DEBRUIJNREF) {
-
+ 	int x;
+	if (n == gGlobal->DEBRUIJNREF) {
+    
+        faustassert(br[0]);
 		if (isInt(br[0]->node(), &x)) {
 			return x;
 		} else {
 			return 0;
 		}
 
-	} else if (n == DEBRUIJN) {
-
+	} else if (n == gGlobal->DEBRUIJN) {
+ 
+        faustassert(br[0]);
 		return br[0]->fAperture - 1;
 
 	} else {
@@ -165,10 +154,9 @@ static Tree liftn(Tree t, int threshold)
 }
 #endif
 
-
 static Tree liftn(Tree t, int threshold)
 {
-	Tree L 	= tree( Node(SYMLIFTN), tree(Node(threshold)) );
+	Tree L 	= tree( Node(gGlobal->SYMLIFTN), tree(Node(threshold)) );
 	Tree t2 = t->getProperty(L);
 
 	if (!t2) {
@@ -218,21 +206,20 @@ static Tree calcliftn(Tree t, int threshold)
 //-----------------------------------------------------------
 // Transform a tree from deBruijn to symbolic representation
 //-----------------------------------------------------------
-Tree DEBRUIJN2SYM = tree(symbol("deBruijn2Sym"));
 
 Tree deBruijn2Sym (Tree t)
 {
-	assert(isClosed(t));
-	Tree t2 = t->getProperty(DEBRUIJN2SYM);
+	faustassert(isClosed(t));
+	Tree t2 = t->getProperty(gGlobal->DEBRUIJN2SYM);
 
 	if (!t2) {
 		t2 = calcDeBruijn2Sym(t);
-		t->setProperty(DEBRUIJN2SYM, t2);
+		t->setProperty(gGlobal->DEBRUIJN2SYM, t2);
 	}
 	return t2;
 }
 
-static Tree calcDeBruijn2Sym (Tree t)
+static Tree calcDeBruijn2Sym(Tree t)
 {
 	Tree 	body, var;
 	int		i;
@@ -248,11 +235,8 @@ static Tree calcDeBruijn2Sym (Tree t)
 
 	} else if (isRef(t,i)) {
 
-		fprintf(stderr, "ERREUR, une reference de Bruijn touvee ! : ");
-		printSignal(t, stderr);
-		fprintf(stderr, ")\n");
-		exit(1);
-		return t;
+        throw faustexception("ERROR : one Bruijn reference found !\n");
+        return t;
 
 	} else {
 
@@ -270,7 +254,7 @@ static Tree calcDeBruijn2Sym (Tree t)
 
 static Tree substitute(Tree t, int level, Tree id)
 {
-	Tree S 	= tree( Node(SUBSTITUTE), tree(Node(level)), id );
+	Tree S 	= tree( Node(gGlobal->SUBSTITUTE), tree(Node(level)), id );
 	Tree t2 = t->getProperty(S);
 
 	if (!t2) {
@@ -364,7 +348,6 @@ static int recomputeAperture(Tree t, Env* env)
 		return ma;
 	}
 }
-
 
 static int orderof (Tree t, Env* p)
 {

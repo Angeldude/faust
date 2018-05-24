@@ -5,7 +5,8 @@
 %{
 #include "tree.hh"
 #include "faustparser.hpp"
-#if defined(WIN32) && !defined(__MINGW32__)
+#if defined(WIN32)
+#if !defined(__MINGW32__) && !defined(__MSYS__)
 // We don't want to include compatibility.hh here, since it pulls in whole lot
 // of unneeded stuff which breaks other things, so here's some stuff to make
 // MSVC happy.
@@ -14,6 +15,15 @@
 #define fileno _fileno
 #define YY_NO_UNISTD_H
 #endif
+#else
+#include "compatibility.hh"
+#include "errormsg.hh"
+
+#define YY_FATAL_ERROR lexerror
+#endif
+
+#define register		// suppress the deprecated 'register' warning
+
 %}
 
 DIGIT    [0-9]
@@ -28,6 +38,7 @@ TMACRO   \\{ID}(\[(\ *({ID}|{NUMBER}),?\ *)\])?(\{(\ *({ID}|{NUMBER}),?\ *)*\})*
 %x comment
 %x doc
 %x lst
+
 
 
 %%
@@ -151,6 +162,8 @@ TMACRO   \\{ID}(\[(\ *({ID}|{NUMBER}),?\ *)\])?(\{(\ *({ID}|{NUMBER}),?\ *)*\})*
 "tgroup"	return TGROUP;
 "vbargraph"	return VBARGRAPH;
 "hbargraph"	return HBARGRAPH;
+"soundfile" return SOUNDFILE;
+
 "attach"	return ATTACH;
 
 "acos"		return ACOS;
@@ -193,7 +206,9 @@ TMACRO   \\{ID}(\[(\ *({ID}|{NUMBER}),?\ *)\])?(\{(\ *({ID}|{NUMBER}),?\ *)*\})*
 "library"   return LIBRARY;
 "environment"   return ENVIRONMENT;
 
-"waveform"   return WAVEFORM;
+"waveform"  return WAVEFORM;
+"enable"   	return ENABLE;
+"control"   return CONTROL;
 
 "declare"	return DECLARE;
 

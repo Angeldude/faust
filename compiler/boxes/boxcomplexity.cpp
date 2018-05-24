@@ -23,22 +23,19 @@
  * Implement complexity computation for box diagrams.
  */
  
- 
- 
-
 // construction des representations graphiques
-
 
 #include <ostream>
 #include "xtended.hh"
-#include "boxcomplexity.h"
+#include "boxcomplexity.hh"
+#include "exception.hh"
+#include "global.hh"
 
 using namespace std;
 
 /**
  * property Key used to store box complexity
  */
-Tree 	BCOMPLEXITY 	= tree ("BCOMPLEXITY");
 
 static int computeBoxComplexity (Tree box);
 
@@ -55,14 +52,14 @@ static int computeBoxComplexity (Tree box);
  */
 int boxComplexity (Tree box)
 {
-	Tree prop = box->getProperty(BCOMPLEXITY);
+	Tree prop = box->getProperty(gGlobal->BCOMPLEXITY);
 	
 	if (prop) {
 		return tree2int(prop);
 		
 	} else {
 		int v = computeBoxComplexity(box);
-		box->setProperty(BCOMPLEXITY,tree(v));
+		box->setProperty(gGlobal->BCOMPLEXITY,tree(v));
 		return v;
 	}
 }
@@ -95,7 +92,7 @@ int computeBoxComplexity (Tree box)
 	prim4	p4;
 	prim5	p5;
 
-	Tree	t1, t2, ff, label, cur, min, max, step, type, name, file;
+	Tree	t1, t2, ff, label, cur, min, max, step, type, name, file, chan;
 	
 	xtended* xt = (xtended*) getUserData(box);
 
@@ -141,6 +138,7 @@ int computeBoxComplexity (Tree box)
 	else if (isBoxHSlider(box, label, cur, min, max, step))	return 1;
 	else if (isBoxHBargraph(box, label, min, max))			return 1;
 	else if (isBoxVBargraph(box, label, min, max))			return 1;
+	else if (isBoxSoundfile(box, label, chan))				return 1;
 	else if (isBoxNumEntry(box, label, cur, min, max, step))return 1;
 	
 	// user interface groups
@@ -148,11 +146,15 @@ int computeBoxComplexity (Tree box)
 	else if (isBoxHGroup(box, label, t1))	return BC(t1);
 	else if (isBoxTGroup(box, label, t1))	return BC(t1);
 
+	// environment
+	else if (isBoxEnvironment(box))			return 0;
+
 	//a completer
 	else {
 		//fout << tree2str(box);
-		cerr << "ERROR in boxComplexity : not an evaluated box [[  " << *box << " ]]";
-		exit(-1);
+        stringstream error;
+        error << "ERROR in boxComplexity : not an evaluated box [[ " << *box << " ]]\n";
+        throw faustexception(error.str());
 	}
 
 	return -1;

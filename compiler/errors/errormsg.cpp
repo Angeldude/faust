@@ -18,67 +18,93 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  ************************************************************************
  ************************************************************************/
- 
- 
- 
+
 #include "errormsg.hh"
 #include "boxes.hh"
 #include "ppbox.hh"
+#include "global.hh"
+#include "exception.hh"
+#include "export.hh"
+
 #include <iostream>
 using namespace std;
 
-const char* yyfilename = "????";
-int 		gErrorCount = 0;
-Tree 		DEFLINEPROP = tree(symbol("DefLineProp"));
-Tree 		USELINEPROP = tree(symbol("UseLineProp"));
+const char* yyfilename  = "????";
 
-void yyerror(const char* msg) 
-{ 
-	fprintf(stderr, "%s:%d:%s\n", yyfilename, yylineno, msg); 
-	gErrorCount++;
+void faustassert(bool cond)
+{
+    if (!cond) {
+    #ifndef EMCC
+        stacktrace(20);
+    #endif
+        std::stringstream str;
+        str << "ASSERT : please report the stack trace and the failing DSP file to Faust developers (";
+        str << "version: " << FAUSTVERSION << ", ";
+        str << "options: "; gGlobal->printCompilationOptions(str);
+        str << ")\n";
+        throw faustexception(str.str());
+    }
+}
+
+void lexerror(const char* msg)
+{
+    string fullmsg = "ERROR : " + string(msg) + '\n';
+    throw faustexception(fullmsg);
+}
+
+void yyerror(const char* msg)
+{
+    stringstream error;
+    error << yyfilename << " : " << yylineno << " : ERROR : " << msg << endl;
+    gGlobal->gErrorCount++;
+    throw faustexception(error.str());
 }
 
 void evalerror(const char* filename, int linenum, const char* msg, Tree exp)
 {
-    fprintf(stderr, "%s:%d: ERROR: %s ", filename, linenum, msg); 
-    print(exp,stderr); fprintf(stderr, "\n");
-    gErrorCount++;
+    stringstream error;
+    error << filename << " : " << linenum << " : ERROR : " << msg << " : " << boxpp(exp) << endl;
+    gGlobal->gErrorCount++;
+    throw faustexception(error.str());
 }
 
 void evalerrorbox(const char* filename, int linenum, const char* msg, Tree exp)
 {
-    cerr << filename << ':' << linenum << ": ERROR: " << msg << " : " << boxpp(exp) << endl;
-    gErrorCount++;
+    stringstream error;
+    error << filename << " : " << linenum << " : ERROR : " << msg << boxpp(exp) << endl;
+    gGlobal->gErrorCount++;
+    throw faustexception(error.str());
 }
 
 void evalwarning(const char* filename, int linenum, const char* msg, Tree exp)
 {
-	fprintf(stderr, "%s:%d: WARNING: %s ", filename, linenum, msg); 
-	print(exp,stderr); fprintf(stderr, "\n");
+    stringstream error;
+    error << filename << " : " << linenum << " : WARNING : " << msg << boxpp(exp) << endl;
+    gGlobal->gErrorMsg = error.str();
 }
 
 void evalremark(const char* filename, int linenum, const char* msg, Tree exp)
 {
-	fprintf(stderr, "%s:%d: REMARK: %s ", filename, linenum, msg); 
-	print(exp,stderr); fprintf(stderr, "\n");
+    stringstream error;
+    error << filename << " : " << linenum << " : REMARK : " << msg << boxpp(exp) << endl;
+    gGlobal->gErrorMsg = error.str();
 }
-
 
 void setDefProp(Tree sym, const char* filename, int lineno)
 {
-    setProperty(sym, DEFLINEPROP, cons(tree(filename), tree(lineno)));
+	setProperty(sym, gGlobal->DEFLINEPROP, cons(tree(filename), tree(lineno)));
 }
 
 bool hasDefProp(Tree sym)
 {
     Tree n;
-    return getProperty(sym, DEFLINEPROP, n);
+    return getProperty(sym, gGlobal->DEFLINEPROP, n);
 }
 
 const char* getDefFileProp(Tree sym)
 {
     Tree n;
-    if (getProperty(sym, DEFLINEPROP, n)) {
+    if (getProperty(sym, gGlobal->DEFLINEPROP, n)) {
         return name(hd(n)->node().getSym());
     } else {
         return "????";
@@ -88,24 +114,22 @@ const char* getDefFileProp(Tree sym)
 int getDefLineProp(Tree sym)
 {
     Tree n;
-    if (getProperty(sym, DEFLINEPROP, n)) {
+    if (getProperty(sym, gGlobal->DEFLINEPROP, n)) {
         return tl(n)->node().getInt();
     } else {
         return -1;
     }
 }
 
-
 void setUseProp(Tree sym, const char* filename, int lineno)
 {
-    setProperty(sym, USELINEPROP, cons(tree(filename), tree(lineno)));
+    setProperty(sym, gGlobal->USELINEPROP, cons(tree(filename), tree(lineno)));
 }
-
 
 const char* getUseFileProp(Tree sym)
 {
     Tree n;
-    if (getProperty(sym, USELINEPROP, n)) {
+    if (getProperty(sym, gGlobal->USELINEPROP, n)) {
         return name(hd(n)->node().getSym());
     } else {
         return "????";
@@ -115,7 +139,7 @@ const char* getUseFileProp(Tree sym)
 int getUseLineProp(Tree sym)
 {
     Tree n;
-    if (getProperty(sym, USELINEPROP, n)) {
+    if (getProperty(sym, gGlobal->USELINEPROP, n)) {
         return tl(n)->node().getInt();
     } else {
         return -1;

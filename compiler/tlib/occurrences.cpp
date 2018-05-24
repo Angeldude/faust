@@ -22,15 +22,11 @@
  * @file occurrences.cpp
  * Count the number of occurences of each subtree of a root tree.
  */
- 
- 
- 
 
 // construction des representations graphiques
 
-
 #include "occurrences.hh"
-#include    "compatibility.hh"
+#include "compatibility.hh"
 
 /**
  * Count the number of occurrences of each subtree of root
@@ -59,14 +55,12 @@ void Occurrences::setCount(Tree t, int c)
 	setProperty(t, fKey, tree(c));
 }	
 
-
-
 /**
  * Creates a specific property key for occurrences count in root
  */
 Tree Occurrences::specificKey(Tree root) 
 {
-	char 	keyname[256];
+	char keyname[256];
 	snprintf(keyname, 256, "OCCURRENCES COUNT IN %p : ", (void*)(CTree*)root);
 
 	return tree(unique(keyname));	

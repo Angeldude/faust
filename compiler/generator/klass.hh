@@ -19,13 +19,11 @@
  ************************************************************************
  ************************************************************************/
 
-
-
 #ifndef _KLASS_H
 #define _KLASS_H
 
 /**********************************************************************
-			- klass.h : class C++ � remplir (projet FAUST) -
+			- klass.h : class C++ a remplir (projet FAUST) -
 
 
 		Historique :
@@ -55,14 +53,12 @@ using namespace std;
 class Klass //: public Target
 {
 
-protected:
-    // we make it global because several classes may need
-    // power def but we want the code to be generated only once
-    static bool     fNeedPowerDef;              ///< true when faustpower definition is needed
-
-
  protected:
     
+    // we make it global because several classes may need
+    // power def but we want the code to be generated only once
+    static bool fNeedPowerDef;
+
     Klass*			fParentKlass;               ///< Klass in which this Klass is embedded, void if toplevel Klass
     string			fKlassName;
     string			fSuperKlassName;
@@ -100,7 +96,8 @@ protected:
     list<string>        fZone2Code;              ///< first private
     list<string>        fZone2bCode;             ///< single once per block
     list<string>        fZone2cCode;             ///< single once per block
-    list<string>        fZone3Code;             ///< private every sub block
+    list<string>        fZone3Code;              ///< private every sub block
+    list<string>        fZone4Code;              ///< code after all loops
   
     Loop*               fTopLoop;               ///< active loops currently open
     property<Loop*>     fLoopProperty;          ///< loops used to compute some signals
@@ -110,19 +107,18 @@ protected:
  public:
 
 	Klass (const string& name, const string& super, int numInputs, int numOutputs, bool __vec = false)
-      : 	fParentKlass(0), fKlassName(name), fSuperKlassName(super), fNumInputs(numInputs), fNumOutputs(numOutputs),
-            fNumActives(0), fNumPassives(0),
-            fTopLoop(new Loop(0, "count")), fVec(__vec)
+      : fParentKlass(0), fKlassName(name), fSuperKlassName(super), fNumInputs(numInputs), fNumOutputs(numOutputs),
+        fNumActives(0), fNumPassives(0),
+        fTopLoop(new Loop(0, "count")), fVec(__vec)
 	{}
 
-	virtual ~Klass() 						{}
+	virtual ~Klass() {}
 
     void    setParentKlass(Klass* parent)       { std::cerr << this << " setParentKlass(" << parent << ")" << std::endl;
-                                                  fParentKlass=parent; }
+                                                  fParentKlass = parent; }
     Klass*  getParentKlass()                    { return fParentKlass; }
     Klass*  getTopParentKlass()                 { return (fParentKlass != 0) ? fParentKlass->getTopParentKlass() : this; }
-    string  getFullClassName()                  { return (fParentKlass!=0) ? fParentKlass->getFullClassName() + "::" + getClassName() : getClassName(); }    ///< Returns the name of the class
-
+    string  getFullClassName()                  { return (fParentKlass != 0) ? fParentKlass->getFullClassName() + "::" + getClassName() : getClassName(); }    ///< Returns the name of the class
 
     void    openLoop(const string& size);
     void    openLoop(Tree recsymbol, const string& size);
@@ -137,48 +133,49 @@ protected:
     
     void buildTasksList();
     
-	void addIncludeFile (const string& str) { fIncludeFileSet.insert(str); }
+	void addIncludeFile(const string& str) { fIncludeFileSet.insert(str); }
 
-	void addLibrary (const string& str) 	{ fLibrarySet.insert(str); }
+	void addLibrary(const string& str) 	{ fLibrarySet.insert(str); }
 
-    void rememberNeedPowerDef ()            { fNeedPowerDef = true; }
+    void rememberNeedPowerDef() { fNeedPowerDef = true; }
 
 	void collectIncludeFile(set<string>& S);
 
 	void collectLibrary(set<string>& S);
 
-    void addSubKlass (Klass* son)			{ fSubClassList.push_back(son); }
+    void addSubKlass(Klass* son)			{ fSubClassList.push_back(son); }
 
-	void addDeclCode (const string& str) 	{ fDeclCode.push_back(str); }
+	void addDeclCode(const string& str) 	{ fDeclCode.push_back(str); }
 
-	void addInitCode (const string& str)	{ fInitCode.push_back(str); }
-    void addInitUICode (const string& str)	{ fInitUICode.push_back(str); }
-    void addClearCode (const string& str)	{ fClearCode.push_back(str); }
+	void addInitCode(const string& str)	{ fInitCode.push_back(str); }
+    void addInitUICode(const string& str)	{ fInitUICode.push_back(str); }
+    void addClearCode(const string& str)	{ fClearCode.push_back(str); }
 
-    void addStaticInitCode (const string& str)	{ fStaticInitCode.push_back(str); }
-    void addStaticDestroyCode (const string& str)	{ fStaticDestroyCode.push_back(str); }
+    void addStaticInitCode(const string& str)	{ fStaticInitCode.push_back(str); }
+    void addStaticDestroyCode(const string& str)	{ fStaticDestroyCode.push_back(str); }
 
-	void addStaticFields (const string& str)	{ fStaticFields.push_back(str); }
+	void addStaticFields(const string& str)	{ fStaticFields.push_back(str); }
 
-	void addUICode (const string& str)		{ fUICode.push_back(str); }
+	void addUICode(const string& str)		{ fUICode.push_back(str); }
 
-    void addUIMacro (const string& str)     { fUIMacro.push_back(str); }
+    void addUIMacro(const string& str)     { fUIMacro.push_back(str); }
 
-    void incUIActiveCount ()                { fNumActives++; }
-    void incUIPassiveCount ()               { fNumPassives++; }
+    void incUIActiveCount()                { fNumActives++; }
+    void incUIPassiveCount()               { fNumPassives++; }
 
-    void addSharedDecl (const string& str)          { fSharedDecl.push_back(str); }
+    void addSharedDecl(const string& str)          { fSharedDecl.push_back(str); }
     void addFirstPrivateDecl (const string& str)    { fFirstPrivateDecl.push_back(str); }
 
-    void addZone1 (const string& str)  { fZone1Code.push_back(str); }
-    void addZone2 (const string& str)  { fZone2Code.push_back(str); }
-    void addZone2b (const string& str)  { fZone2bCode.push_back(str); }
-    void addZone2c (const string& str)  { fZone2cCode.push_back(str); }
-    void addZone3 (const string& str)  { fZone3Code.push_back(str); }
+    void addZone1(const string& str) { fZone1Code.push_back(str); }
+    void addZone2(const string& str) { fZone2Code.push_back(str); }
+    void addZone2b(const string& str) { fZone2bCode.push_back(str); }
+    void addZone2c(const string& str) { fZone2cCode.push_back(str); }
+    void addZone3(const string& str) { fZone3Code.push_back(str); }
+    void addZone4(const string& str) { fZone4Code.push_back(str); }
  
-    void addPreCode ( const string& str)   { fTopLoop->addPreCode(str); }
-    void addExecCode ( const string& str)   { fTopLoop->addExecCode(str); }
-	void addPostCode (const string& str)	{ fTopLoop->addPostCode(str); }
+    void addPreCode(const Statement& stmt) { fTopLoop->addPreCode(stmt); }
+    void addExecCode(const Statement& stmt) { fTopLoop->addExecCode(stmt); }
+    void addPostCode(const Statement& stmt)	{ fTopLoop->addPostCode(stmt); }
 
 	virtual void println(int n, ostream& fout);
     
@@ -204,7 +201,7 @@ protected:
     virtual void printOneLoopScheduler(lset::const_iterator p, int n, ostream& fout);
     virtual void printLoopLevelOpenMP(int n, int lnum, const lset& L, ostream& fout);
 
-    virtual void printMetadata(int n, const map<Tree, set<Tree> >& S, ostream& fout);
+    virtual void printMetadata(int n, const MetaDataSet& S, ostream& fout);
 
 	virtual void printIncludeFile(ostream& fout);
 
@@ -232,6 +229,5 @@ class SigFloatGenKlass : public Klass {
 
 	virtual void println(int n, ostream& fout);
 };
-
 
 #endif

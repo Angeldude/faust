@@ -1,3 +1,23 @@
+/************************************************************************
+ ************************************************************************
+    FAUST compiler
+	Copyright (C) 2003-2004 GRAME, Centre National de Creation Musicale
+    ---------------------------------------------------------------------
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ************************************************************************
+ ************************************************************************/
 
 /* compiler/patternmatcher/patternmatcher.cpp: implementation of the Faust
    rewriting engine */
@@ -14,6 +34,9 @@ using namespace std;
 #include <list>
 #include <set>
 #include <utility>
+#include "exception.hh"
+#include "global.hh"
+#include "garbageable.hh"
 
 /* Uncomment for debugging output. */
 //#define DEBUG
@@ -72,7 +95,7 @@ static Tree subtree(Tree X, int i, const Path& p)
 
 /* rule markers */
 
-struct Rule {
+struct Rule : public virtual Garbageable {
   int r; // rule number
   Tree id; // matched variable (NULL if none)
   Path p; // subterm path indicating where variable value is found
@@ -98,7 +121,7 @@ struct State;
 
 /* transitions */
 
-struct Trans {
+struct Trans : public virtual Garbageable {
   Tree x; // symbol or constant (NULL for variable)
   Node n; // operator symbol (if arity>0)
   int arity; // symbol arity
@@ -130,7 +153,7 @@ struct Trans {
 
 /* states */
 
-struct State {
+struct State : public virtual Garbageable {
   int s; // state number
   bool match_num; // whether state has a transition on a numeric constant
   list<Rule> rules; // rule markers
@@ -143,7 +166,7 @@ struct State {
 
   State& operator = (const State& state)
   { s = state.s; match_num = state.match_num;
-    rules = state.rules; trans = state.trans; 
+    rules = state.rules; trans = state.trans;
 	return *this;
   }
 
@@ -171,9 +194,7 @@ Trans::Trans(const Trans& trans) :
 }
 
 Trans::~Trans()
-{
-  delete state;
-}
+{}
 
 Trans& Trans::operator = (const Trans& trans)
 {
@@ -184,7 +205,7 @@ Trans& Trans::operator = (const Trans& trans)
 
 /* the automaton */
 
-struct Automaton {
+struct Automaton : public virtual Garbageable {
   vector<State*> state;
   vector<Tree> rhs;
 
@@ -215,7 +236,7 @@ void Automaton::build(State *st)
   list<Trans>::const_iterator t;
   for (t = st->trans.begin(); t != st->trans.end(); t++) {
     Tree x;
-    double f; 
+    double f;
     int i;
     if (t->is_cst_trans(x) &&
 	(isBoxInt(x, &i) || isBoxReal(x, &f)))
@@ -388,7 +409,6 @@ static void merge_trans_var(list<Trans>& trans, State *state)
       /* add the completion of the given state for an arity>0 op */
       State *state1 = make_var_state(t->arity, state);
       merge_state(t->state, state1);
-      delete state1;
     }
   }
 }
@@ -442,7 +462,6 @@ static void merge_trans_op(list<Trans>& trans, const Node& op,
   if (t1 != t0) {
     State *state2 = make_var_state(arity, t0->state);
     merge_state(state1, state2);
-    delete state2;
   }
 }
 
@@ -508,18 +527,17 @@ Automaton *make_pattern_matcher(Tree R)
       State *state0 = new State, *state = state0;
       A->rhs.push_back(rhs);
       while (isCons(lhs, pat, rest)) {
-	pats[--i] = pat;
-	lhs = rest;
+        pats[--i] = pat;
+        lhs = rest;
       }
       testpats[r] = pats;
       for (i = 0; i < m; i++) {
-	Path p;
-	state = make_state(state, r, pats[i], p);
+        Path p;
+        state = make_state(state, r, pats[i], p);
       }
       Rule rule(r, NULL);
       state->rules.push_back(rule);
       merge_state(start, state0);
-      delete state0;
     }
   }
   A->build(start);
@@ -529,7 +547,7 @@ Automaton *make_pattern_matcher(Tree R)
   for (r = 0; r < n; r++) {
     int s = 0, m = (int)testpats[r].size();
     Tree C;
-    vector<Tree> E(n, nil);
+    vector<Tree> E(n, gGlobal->nil);
     /* try to match the lhs of rule #r */
     for (int i = 0; i < m; i++) {
       s = apply_pattern_matcher(A, s, testpats[r][i], C, E);
@@ -544,17 +562,18 @@ Automaton *make_pattern_matcher(Tree R)
                be shadowed. */
             Tree lhs1, rhs1, lhs2, rhs2;
             if (isCons(rules[ru->r], lhs1, rhs1) &&  isCons(rules[r], lhs2, rhs2)) {
-                cerr 	<< "WARNING : shadowed pattern-matching rule: "
+                cerr << "WARNING : shadowed pattern-matching rule: "
                     << boxpp(reverse(lhs2)) << " => " << boxpp(rhs2) << ";"
-                    << " previous rule was: " 
+                    << " previous rule was: "
                     << boxpp(reverse(lhs1)) << " => " << boxpp(rhs1) << ";"
                     << endl;
             } else {
-                cerr << "INTERNAL ERROR : " << __FILE__ << ":" << __LINE__ << endl;
-                exit(1);
+                stringstream error;
+                error << "ERROR : " << __FILE__ << ":" << __LINE__ << endl;
+                throw faustexception(error.str());
             }
           } else if (ru->r >= r) {
-            break;
+              break;
           }
        }
     }
@@ -570,7 +589,7 @@ Automaton *make_pattern_matcher(Tree R)
    of the argument where the substitution of the matched variable is to be
    found. */
 
-struct Assoc {
+struct Assoc : public virtual Garbageable {
   Tree id;
   Path p;
   Assoc(Tree _id, const Path& _p) : id(_id), p(_p) {}
@@ -618,20 +637,20 @@ static int apply_pattern_matcher_internal(Automaton *A, int s, Tree X,
 	  return s;
 	}
       } else if (t->is_op_trans(op)) {
-	Tree x0, x1;
-	if (isBoxPatternOp(X, op1, x0, x1) && op == op1) {
-	  /* transition on operation symbol */
-#ifdef DEBUG
-      cerr << "state " << s << ", " << op << ": goto state " << t->state->s << endl;
-#endif
-	  add_subst(subst, A, s);
-	  s = t->state->s;
-	  if (s >= 0)
-	    s = apply_pattern_matcher_internal(A, s, x0, subst);
-	  if (s >= 0)
-	    s = apply_pattern_matcher_internal(A, s, x1, subst);
-	  return s;
-	}
+        Tree x0, x1;
+        if (isBoxPatternOp(X, op1, x0, x1) && op == op1) {
+          /* transition on operation symbol */
+    #ifdef DEBUG
+          cerr << "state " << s << ", " << op << ": goto state " << t->state->s << endl;
+    #endif
+          add_subst(subst, A, s);
+          s = t->state->s;
+          if (s >= 0)
+            s = apply_pattern_matcher_internal(A, s, x0, subst);
+          if (s >= 0)
+            s = apply_pattern_matcher_internal(A, s, x1, subst);
+          return s;
+        }
       }
     }
     /* check for variable transition (is always first in the list of
@@ -659,11 +678,11 @@ static int apply_pattern_matcher_internal(Automaton *A, int s, Tree X,
    state is reached. Result will be -1 to indicate a matching failure, and C
    will be set to nil if no final state has been reached yet. */
 
-int apply_pattern_matcher(Automaton *A,		// automaton
-                          int s,		// start state
-	                  Tree X,		// arg to be matched
-			  Tree& C,		// output closure (if any)
-			  vector<Tree>& E)	// modified output environments
+int apply_pattern_matcher(Automaton *A,	// automaton
+                        int s,          // start state
+                        Tree X,         // arg to be matched
+                        Tree& C,        // output closure (if any)
+                        vector<Tree>& E)// modified output environments
 {
   int n = A->n_rules();
   vector<Subst> subst(n, Subst());
@@ -672,7 +691,7 @@ int apply_pattern_matcher(Automaton *A,		// automaton
   cerr << "automaton " << A << ", state " << s << ", start match on arg: " << *X << endl;
 #endif
   s = apply_pattern_matcher_internal(A, s, X, subst);
-  C = nil;
+  C = gGlobal->nil;
   if (s < 0)
     /* failed match */
     return s;
@@ -710,13 +729,13 @@ int apply_pattern_matcher(Automaton *A,		// automaton
        corresponding variable environment */
     for (r = A->rules(s).begin(); r != A->rules(s).end(); r++) // all rules matched in state s
       if (!isBoxError(E[r->r])) { // and still viable
-	/* return the rhs of the matched rule */
-	C = closure(A->rhs[r->r], nil, nil, E[r->r]);
-#ifdef DEBUG
-    cerr << "state " << s << ", complete match yields rhs #" << r->r <<
-	  ": " << *A->rhs[r->r] << endl;
-#endif
-	return s;
+        /* return the rhs of the matched rule */
+        C = closure(A->rhs[r->r], gGlobal->nil, gGlobal->nil, E[r->r]);
+    #ifdef DEBUG
+        cerr << "state " << s << ", complete match yields rhs #" << r->r <<
+          ": " << *A->rhs[r->r] << endl;
+    #endif
+        return s;
       }
     /* if none of the rules were matched then declare a failed match */
 #ifdef DEBUG
