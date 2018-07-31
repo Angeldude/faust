@@ -508,7 +508,6 @@ void faust_anything(t_faust* obj, t_symbol* s, short ac, t_atom* av)
     // Check if no argument is there, consider it is a toggle message for a button
     if (ac == 0 && obj->m_dspUI->isValue(name)) {
         
-        string name = string((s)->s_name);
         float off = 0.0f;
         float on = 1.0f;
         obj->m_dspUI->setValue(name, off);
@@ -796,7 +795,10 @@ void* faust_new(t_symbol* s, short ac, t_atom* av)
         post("Bundle_path cannot be found!");
     }
     x->m_soundInterface = new SoundUI(bundle_path_str);
+    // SoundUI has to be dispatched on all internal voices
+    if (dsp_poly) dsp_poly->setGroup(false);
     x->m_dsp->buildUserInterface(x->m_soundInterface);
+    if (dsp_poly) dsp_poly->setGroup(true);
 #endif
     
     // Send JSON to JS script

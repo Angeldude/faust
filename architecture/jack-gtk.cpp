@@ -173,7 +173,10 @@ int main(int argc, char *argv[])
     FUI finterface;
 #if SOUNDFILE
     SoundUI soundinterface;
+    // SoundUI has to be dispatched on all internal voices
+    if (dsp_poly) dsp_poly->setGroup(false);
     DSP->buildUserInterface(&soundinterface);
+    if (dsp_poly) dsp_poly->setGroup(group);
 #endif
     DSP->buildUserInterface(&interface);
     DSP->buildUserInterface(&finterface);
@@ -229,21 +232,13 @@ int main(int argc, char *argv[])
 	httpdinterface.run();
 #endif
 
-#ifdef OSCCTRL
-	oscinterface.run();
-#endif
-    
-#ifdef MIDICTRL
-    if (!midiinterface->run()) {
-        std::cerr << "MidiUI run error\n";
-    }
-#endif
-
 #ifdef OCVCTRL
 	ocvinterface.run();
 #endif
 
-	interface.run();
+	/* call run all GUI instances */
+	GUI::runAllGuis();
+
 	
 	audio.stop();
 	finterface.saveState(rcfilename);

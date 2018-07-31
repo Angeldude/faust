@@ -50,6 +50,10 @@
 #include "faust/midi/juce-midi.h"
 #endif
 
+#if defined(SOUNDFILE)
+#include "faust/gui/SoundUI.h"
+#endif
+
 #if defined(POLY2)
 #include "faust/dsp/dsp-combiner.h"
 #include "dsp_effect.cpp"
@@ -94,7 +98,8 @@ class FaustVoice : public SynthesiserVoice, public dsp_voice {
                         SynthesiserSound* s,
                         int currentPitchWheelPosition) override
         {
-            keyOn(midiNoteNumber, velocity);
+            // Note is triggered
+            keyOn(midiNoteNumber, velocity, true);
         }
         
         void stopNote (float velocity, bool allowTailOff) override
@@ -257,7 +262,11 @@ class FaustPlugInAudioProcessor : public AudioProcessor, private Timer
     #if defined(OSCCTRL)
         ScopedPointer<JuceOSCUI> fOSCUI;
     #endif
-        
+    
+    #if defined(SOUNDFILE)
+        ScopedPointer<SoundUI> fSoundUI;
+    #endif
+    
         JuceStateUI fStateUI;
         JuceParameterUI fParameterUI;
         
@@ -381,6 +390,17 @@ FaustPlugInAudioProcessor::FaustPlugInAudioProcessor()
     if (!fOSCUI->run()) {
         std::cerr << "JUCE OSC handler cannot be started..." << std::endl;
     }
+#endif
+    
+#if defined(SOUNDFILE)
+    // Use bundle path
+    auto file = File::getSpecialLocation(File::currentExecutableFile)
+        .getParentDirectory().getParentDirectory().getChildFile("Resources");
+    fSoundUI = new SoundUI(file.getFullPathName().toStdString());
+    // SoundUI has to be dispatched on all internal voices
+    if (dsp_poly) dsp_poly->setGroup(false);
+    fDSP->buildUserInterface(fSoundUI);
+    if (dsp_poly) dsp_poly->setGroup(group);
 #endif
     
 #ifdef JUCE_POLY

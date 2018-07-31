@@ -26,13 +26,13 @@
 
 #include <stdio.h>
 #include <string>
-#include <math.h>
-#include <float.h>
+#include <cmath>
 #include <algorithm>
 #include <ostream>
 #include <sstream>
 #include <vector>
 #include <limits.h>
+#include <float.h>
 
 #include "faust/gui/MidiUI.h"
 #include "faust/gui/MapUI.h"
@@ -59,7 +59,7 @@ static inline bool endsWith(std::string const& str, std::string const& end)
 
 static inline double midiToFreq(double note)
 {
-    return 440.0 * pow(2.0, (note-69.0)/12.0);
+    return 440.0 * std::pow(2.0, (note-69.0)/12.0);
 }
 
 /**
@@ -167,7 +167,9 @@ struct dsp_voice : public MapUI, public decorator_dsp {
     std::string fGatePath;  // Path of 'gate' control
     std::string fGainPath;  // Path of 'gain' control
     std::string fFreqPath;  // Path of 'freq' control
-
+    FAUSTFLOAT** fInputsSlice;
+    FAUSTFLOAT** fOutputsSlice;
+ 
     dsp_voice(dsp* dsp):decorator_dsp(dsp)
     {
         dsp->buildUserInterface(this);
@@ -176,6 +178,13 @@ struct dsp_voice : public MapUI, public decorator_dsp {
         fDate = 0;
         fTrigger = false;
         extractPaths(fGatePath, fFreqPath, fGainPath);
+        fInputsSlice = new FAUSTFLOAT*[dsp->getNumInputs()];
+        fOutputsSlice = new FAUSTFLOAT*[dsp->getNumOutputs()];
+    }
+    virtual ~dsp_voice()
+    {
+        delete [] fInputsSlice;
+        delete [] fOutputsSlice;
     }
 
     void extractPaths(std::string& gate, std::string& freq, std::string& gain)
@@ -195,19 +204,21 @@ struct dsp_voice : public MapUI, public decorator_dsp {
     }
 
     // MIDI velocity [0..127]
-    void keyOn(int pitch, int velocity)
+    void keyOn(int pitch, int velocity, bool trigger)
     {
         setParamValue(fFreqPath, midiToFreq(pitch));
         setParamValue(fGainPath, float(velocity)/127.f);
         fNote = pitch;
+        fTrigger = trigger;
     }
 
     // Normalized MIDI velocity [0..1]
-    void keyOn(int pitch, float velocity)
+    void keyOn(int pitch, float velocity, bool trigger)
     {
         setParamValue(fFreqPath, midiToFreq(pitch));
         setParamValue(fGainPath, velocity);
         fNote = pitch;
+        fTrigger = trigger;
     }
 
     void keyOff(bool hard = false)
@@ -248,17 +259,13 @@ struct dsp_voice : public MapUI, public decorator_dsp {
     void computeSlice(int offset, int slice, FAUSTFLOAT** inputs, FAUSTFLOAT** outputs)
     {
         if (slice > 0) {
-            FAUSTFLOAT** inputs_slice = (FAUSTFLOAT**)alloca(getNumInputs() * sizeof(FAUSTFLOAT*));
             for (int chan = 0; chan < getNumInputs(); chan++) {
-                inputs_slice[chan] = &(inputs[chan][offset]);
+                fInputsSlice[chan] = &(inputs[chan][offset]);
             }
-
-            FAUSTFLOAT** outputs_slice = (FAUSTFLOAT**)alloca(getNumOutputs() * sizeof(FAUSTFLOAT*));
             for (int chan = 0; chan < getNumOutputs(); chan++) {
-                outputs_slice[chan] = &(outputs[chan][offset]);
+                fOutputsSlice[chan] = &(outputs[chan][offset]);
             }
-
-            compute(slice, inputs_slice, outputs_slice);
+            compute(slice, fInputsSlice, fOutputsSlice);
         }
     }
 
@@ -329,7 +336,7 @@ struct dsp_voice_group {
             if (!fGroupControl) {
                 for (size_t i = 0; i < fVoiceTable.size(); i++) {
                     char buffer[32];
-                    snprintf(buffer, 32, ((fVoiceTable.size() < 8) ? "Voice%ld" : "V%ld"), i+1);
+                    snprintf(buffer, 32, ((fVoiceTable.size() < 8) ? "Voice%ld" : "V%ld"), long(i+1));
                     ui_interface->openHorizontalBox(buffer);
                     fVoiceTable[i]->buildUserInterface(ui_interface);
                     ui_interface->closeBox();
@@ -358,7 +365,10 @@ class dsp_poly : public decorator_dsp, public midi {
 };
 
 /**
- * Polyphonic DSP : group a set of DSP to be played together or triggered by MIDI.
+ * Polyphonic DSP: groups a set of DSP to be played together or triggered by MIDI.
+ *
+ * All voices are preallocated by cloning the single DSP voice given at creation time.
+ * Dynamic voice allocation is done in 'getFreeVoice'
  */
 
 class mydsp_poly : public dsp_voice_group, public dsp_poly {
@@ -625,6 +635,14 @@ class mydsp_poly : public dsp_voice_group, public dsp_poly {
         {
             compute(count, inputs, outputs);
         }
+    
+        // Terminate all active voices, gently or immediately (depending of 'hard' value)
+        void allNotesOff(bool hard = false)
+        {
+            for (size_t i = 0; i < fVoiceTable.size(); i++) {
+                fVoiceTable[i]->keyOff(hard);
+            }
+        }
 
         // Additional polyphonic API
         MapUI* newVoice()
@@ -641,13 +659,16 @@ class mydsp_poly : public dsp_voice_group, public dsp_poly {
                 std::cout << "Voice not found\n";
             }
         }
+    
+        void setGroup(bool group) { fGroupControl = group; }
+        bool getGroup() { return fGroupControl; }
 
         // MIDI API
         MapUI* keyOn(int channel, int pitch, int velocity)
         {
             if (checkPolyphony()) {
                 int voice = getFreeVoice();
-                fVoiceTable[voice]->keyOn(pitch, velocity);
+                fVoiceTable[voice]->keyOn(pitch, velocity, true);
                 return fVoiceTable[voice];
             } else {
                 return 0;
@@ -687,14 +708,6 @@ class mydsp_poly : public dsp_voice_group, public dsp_poly {
 
         void ctrlChange14bits(int channel, int ctrl, int value)
         {}
-
-        // Terminate all active voices, gently or immediately (depending of 'hard' value)
-        void allNotesOff(bool hard = false)
-        {
-            for (size_t i = 0; i < fVoiceTable.size(); i++) {
-                fVoiceTable[i]->keyOff(hard);
-            }
-        }
 
 };
 

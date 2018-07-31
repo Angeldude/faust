@@ -172,6 +172,7 @@ faustgen_factory::faustgen_factory(const string& name)
     fFaustNumber = gFaustCounter;
     fOptLevel = LLVM_OPTIMIZATION;
     fPolyphonic = false;
+    fSoundInterface = NULL;
     
     fMidiHandler.start_midi();
     
@@ -320,8 +321,11 @@ llvm_dsp_factory* faustgen_factory::create_factory_from_sourcecode()
     argv[fCompileOptions.size()] = 0;  // NULL terminated argv
     llvm_dsp_factory* factory = createDSPFactoryFromString(name_app, *fSourceCode, fCompileOptions.size(), argv, getTarget(), error, fOptLevel);
 #endif
-
+   
     if (factory) {
+        // Reset fSoundInterface with the new factory getDSPFactoryIncludePathnames
+        delete fSoundInterface;
+        fSoundInterface = new SoundUI(factory->getDSPFactoryIncludePathnames());
         return factory;
     } else {
         // Update all instances
@@ -1264,12 +1268,9 @@ void faustgen::polyphony(long inlet, t_symbol* s, long ac, t_atom* av)
         fDSP = fDSPfactory->create_dsp_instance(av[0].a_w.w_long);
         assert(fDSP);
         
-        // Initialize User Interface (here connnection with controls)
-        fDSP->buildUserInterface(&fDSPUI);
-        
-        add_midihandler();
-        fDSP->buildUserInterface(fMidiUI);
-        
+        // Init all controllers (UI, MIDI, Soundfile)
+        init_controllers();
+
         // Prepare JSON
         fDSPfactory->make_json(fDSP);
         
@@ -1501,17 +1502,37 @@ void faustgen::remove_midihandler()
     }
 }
 
+void faustgen::init_controllers()
+{
+    // Initialize User Interface (here connnection with controls)
+    fDSP->buildUserInterface(&fDSPUI);
+    
+    // MIDI handling
+    add_midihandler();
+    fDSP->buildUserInterface(fMidiUI);
+    
+    // Soundfile handling
+    if (fDSPfactory->fSoundInterface) {
+        if (fDSPfactory->fPolyphonic) {
+            mydsp_poly* poly = static_cast<mydsp_poly*>(fDSP);
+            // SoundUI has to be dispatched on all internal voices
+            poly->setGroup(false);
+            fDSP->buildUserInterface(fDSPfactory->fSoundInterface);
+            poly->setGroup(true);
+        } else {
+            fDSP->buildUserInterface(fDSPfactory->fSoundInterface);
+        }
+    }
+}
+
 void faustgen::create_dsp(bool init)
 {
     if (fDSPfactory->lock()) {
         fDSP = fDSPfactory->create_dsp_aux();
         assert(fDSP);
         
-        // Initialize User Interface (here connnection with controls)
-        fDSP->buildUserInterface(&fDSPUI);
-        
-        add_midihandler();
-        fDSP->buildUserInterface(fMidiUI);
+        // Init all controllers (UI, MIDI, Soundfile)
+        init_controllers();
         
         // Initialize at the system's sampling rate
         fDSP->init(sys_getsr());
@@ -1579,17 +1600,9 @@ void faustgen::create_jsui()
         obj = jbox_get_object(box);
         // Notify JSON
         if (obj && strcmp(object_classname(obj)->s_name, "js") == 0) {
-            t_atom argv[2];
-            // Add JSON parameter
-            atom_setsym(&argv[0], gensym(fDSPfactory->get_json()));
-            // Add scripting name parameter
-            t_object* fg_box;
-            object_obex_lookup((t_object*)&m_ob, gensym("#B"), &fg_box);
-            t_symbol* scripting = jbox_get_varname(fg_box); // scripting name
-            if (scripting) {
-                atom_setsym(&argv[1], gensym(scripting->s_name));
-            }
-            object_method_typed(obj, gensym("anything"), 2, argv, 0);
+            t_atom json;
+            atom_setsym(&json, gensym(fDSPfactory->get_json()));
+            object_method_typed(obj, gensym("anything"), 1, &json, 0);
         }
     }
         

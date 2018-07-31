@@ -3,7 +3,7 @@ project (faust)
 
 #######################################
 # versions management
-set (VERSION 2.5.35)
+set (VERSION 2.7.4)
 set (SOVERS 2)
 
 get_filename_component(ROOT ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
@@ -16,13 +16,19 @@ set (CMAKE_CXX_STANDARD 11)
 
 #######################################
 # Output options
+option ( DEPLOYMENT_TARGET 	"[MacOS]"	off )
 option ( UNIVERSAL 	"Compiles and combines i386 and x86_64 architectures [MacOS]"	off )
 option ( IOS     	"Compiles for iOS"	off )
 option ( USE_LLVM_CONFIG    "Force use off llvm-config"	on )
+option ( INCLUDE_EXECUTABLE	"Include runtime executable"	on )
 option ( INCLUDE_STATIC    	"Include static library"	off )
 option ( INCLUDE_DYNAMIC    "Include dynamic library"	off )
 option ( INCLUDE_OSC    	"Include Faust OSC library"	on )
 option ( INCLUDE_HTTP    	"Include Faust HTTPD library"	on )
+
+if (NOT DEFINED DEPLOYMENT_TARGET_VERSION)
+	set ( DEPLOYMENT_TARGET_VERSION  10.11)
+endif()
 
 #######################################
 # Check output options
@@ -193,6 +199,9 @@ if(APPLE)
 		set (CMAKE_OSX_SYSROOT "iphoneos")
 		set (CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET 8.0)
 	else()
+		if (DEPLOYMENT_TARGET)
+			set (CMAKE_OSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET_VERSION})
+		endif()
 		set (MACSDK /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 		if (EXISTS ${MACSDK})
 			set (CMAKE_OSX_SYSROOT ${MACSDK})
@@ -209,7 +218,7 @@ elseif(WIN32)
 	if (NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 		set (FAUST_DEFINITIONS ${FAUST_DEFINITIONS} -DWIN32 -D__MINGW32__)
 	endif()
-	set (FAUST_DEFINITIONS ${FAUST_DEFINITIONS} -D_CRT_SECURE_NO_WARNINGS)
+	set (FAUST_DEFINITIONS ${FAUST_DEFINITIONS} -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES)
 	set (FAUST_LIBS ${FAUST_LIBS} Ws2_32.lib)
 else()
 	set (FAUST_LIBS -lpthread ${FAUST_LIBS})
@@ -252,14 +261,16 @@ endmacro()
 ####################################
 # Add the different targets
 ####################################
-add_executable(faust ${SRC} ${HH})
-target_compile_definitions (faust PRIVATE ${FAUST_DEFINITIONS})
-target_include_directories (faust PRIVATE ${FAUST_INC} ${LLVM_INC})
-target_link_libraries (faust PRIVATE ${FAUST_LIBS})
-scan_backends (faust COMPILER)
-set_target_properties(faust  PROPERTIES
-	RUNTIME_OUTPUT_DIRECTORY ${BINDIR})
-set (INSTALL_TARGETS faust)
+if (INCLUDE_EXECUTABLE)
+	add_executable(faust ${SRC} ${HH})
+	target_compile_definitions (faust PRIVATE ${FAUST_DEFINITIONS})
+	target_include_directories (faust PRIVATE ${FAUST_INC} ${LLVM_INC})
+	target_link_libraries (faust PRIVATE ${FAUST_LIBS})
+	scan_backends (faust COMPILER)
+	set_target_properties(faust  PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY ${BINDIR})
+	set (INSTALL_TARGETS faust)
+endif()
 
 # static faust library
 if (INCLUDE_STATIC)
@@ -267,7 +278,11 @@ if (INCLUDE_STATIC)
 	target_compile_definitions (staticlib PRIVATE ${FAUST_DEFINITIONS})
 	target_include_directories (staticlib PRIVATE ${FAUST_INC} ${LLVM_INC})
 	target_link_libraries (staticlib PRIVATE ${FAUST_LIBS})
-	set_target_properties(staticlib PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LIBDIR})
+	set_target_properties(staticlib PROPERTIES 
+		ARCHIVE_OUTPUT_DIRECTORY ${LIBDIR}
+		LIBRARY_OUTPUT_DIRECTORY ${LIBDIR}
+		ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${LIBDIR}
+		LIBRARY_OUTPUT_DIRECTORY_RELEASE ${LIBDIR})
 	if (WIN32)
 		if (MSVC)
 			set_target_properties(staticlib  PROPERTIES OUTPUT_NAME libfaust)
@@ -279,12 +294,12 @@ if (INCLUDE_STATIC)
 		set_target_properties(staticlib PROPERTIES OUTPUT_NAME faust.ios)
 	else()
 		set_target_properties(staticlib PROPERTIES OUTPUT_NAME faust)
-	endif()	
+	endif()
 	set_target_properties(staticlib PROPERTIES COMPILE_FLAGS  -DFAUST_LIB
 		POSITION_INDEPENDENT_CODE ON)
 	set (INSTALL_TARGETS ${INSTALL_TARGETS} staticlib)
 	scan_backends (staticlib STATIC)
-endif()	
+endif()
 
 
 # dynamic faust library
@@ -295,7 +310,7 @@ if (INCLUDE_DYNAMIC)
 	target_link_libraries (dynamiclib PRIVATE ${FAUST_LIBS})
 	if (WIN32)
 		enable_language(RC)
-		set_target_properties(dynamiclib PROPERTIES 
+		set_target_properties(dynamiclib PROPERTIES
 			ARCHIVE_OUTPUT_DIRECTORY  ${LIBDIR}
 			RUNTIME_OUTPUT_DIRECTORY  ${LIBDIR})
 		set_target_properties(dynamiclib PROPERTIES OUTPUT_NAME faust)
@@ -306,9 +321,9 @@ if (INCLUDE_DYNAMIC)
 			set_target_properties(dynamiclib PROPERTIES OUTPUT_NAME faust.ios)
 		else()
 			set_target_properties(dynamiclib PROPERTIES OUTPUT_NAME faust)
-		endif()	
+		endif()
 		set_target_properties(dynamiclib PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${LIBDIR})
-		set_target_properties(dynamiclib PROPERTIES 
+		set_target_properties(dynamiclib PROPERTIES
 			LIBRARY_OUTPUT_DIRECTORY ${LIBDIR}
 			VERSION ${VERSION}
 			SOVERSION ${SOVERS})
@@ -349,8 +364,8 @@ message (STATUS "Include targets: ${INSTALL_TARGETS} ${SUBTARGETS}")
 
 ####################################
 # install the faust compiler and libraries
-install ( TARGETS ${INSTALL_TARGETS} 
-	RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin 
+install ( TARGETS ${INSTALL_TARGETS}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include/faust
@@ -426,7 +441,7 @@ install (
 )
 
 # install folders
-set (ARCHSRC android api AU iOS juce max-msp nodejs osclib smartKeyboard unity webaudio)
+set (ARCHSRC android api AU iOS juce max-msp nodejs osclib sam smartKeyboard unity webaudio)
 foreach (dir ${ARCHSRC})
 	set(ARCHFOLDERS ${ARCHFOLDERS} ${ARCHDIR}/${dir})
 endforeach()

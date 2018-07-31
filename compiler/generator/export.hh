@@ -22,12 +22,12 @@
 #ifndef __export__
 #define __export__
 
-#define FAUSTVERSION "2.5.35"
+#define FAUSTVERSION "2.7.4"
 
 #ifdef _WIN32
-	#define	EXPORT __declspec(dllexport)
+#define EXPORT __declspec(dllexport)
 #else
-	#define	EXPORT __attribute__ ((visibility("default")))
+#define EXPORT __attribute__((visibility("default")))
 #endif
 
 #endif

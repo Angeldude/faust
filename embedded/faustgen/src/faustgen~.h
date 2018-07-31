@@ -42,6 +42,8 @@
 #include "faust/dsp/llvm-dsp.h"
 #include "faust/gui/JSONUI.h"
 #include "faust/gui/MidiUI.h"
+#include "faust/gui/SoundUI.h"
+
 #include "maxcpp5.h"
 
 #ifndef WIN32
@@ -54,7 +56,7 @@
 #include "ext_drag.h"
 
 #define DEFAULT_SOURCE_CODE "import(\"stdfaust.lib\");\nprocess=_,_;"
-#define FAUSTGEN_VERSION "1.22"
+#define FAUSTGEN_VERSION "1.26"
 #define FAUST_PDF_DOCUMENTATION "faust-quick-reference.pdf"
 #define FAUST_PDF_LIBRARY "library.pdf"
 
@@ -72,7 +74,7 @@
 #endif
 
 #define LLVM_OPTIMIZATION -1  // means 'maximum'
-#define DEFAULT_CODE "process = _,_;"
+#define DEFAULT_CODE "process = 0,0;"
 
 const char* TEXT_APPL_LIST[] = {"Atom", "Smultron", "TextWrangler", "TextExit", "" };
 
@@ -91,7 +93,9 @@ class faustgen_factory {
       
         set<faustgen*> fInstances;      // set of all DSP 
         llvm_dsp_factory* fDSPfactory;  // pointer to the LLVM Faust factory
-        midi_handler fMidiHandler;      // Generic MIDI handler          
+        midi_handler fMidiHandler;      // Generic MIDI handler
+    
+        SoundUI* fSoundInterface;       // Generic Soundfile interface
    
         long fSourceCodeSize;           // length of source code string
         char** fSourceCode;             // source code string
@@ -240,7 +244,9 @@ class faustgen : public MspCpp5<faustgen> {
         void update_outputs();
         
         bool allocate_factory(const string& effect_name);
-        
+    
+        void init_controllers();
+    
         t_dictionary* json_reader(const char* jsontext);
     
         void add_midihandler();

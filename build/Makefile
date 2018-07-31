@@ -16,6 +16,7 @@ IOSDIR   := iosdir
 # current generator and backends
 CACHE  = $(FAUSTDIR)/CMakeCache.txt
 BCACHE = $(FAUSTDIR)/backends.txt
+TCACHE = $(FAUSTDIR)/targets.txt
 ifeq ($(system),  MINGW)
 	GENERATOR ?= $(shell [ -f $(CACHE) ] && (grep CMAKE_GENERATOR:INTERNAL $(CACHE) | cut -d= -f2) || echo MSYS Makefiles)
 else
@@ -29,16 +30,17 @@ DESTDIR ?=
 
 MAKE ?= make
 
-#CMAKEOPT ?= -DCMAKE_BUILD_TYPE=Release
-#BUILDOPT ?= --config Release
+CMAKEOPT ?= -DCMAKE_BUILD_TYPE=Release
+BUILDOPT ?= --config Release
 
-CMAKEOPT ?= -DCMAKE_BUILD_TYPE=Debug
-BUILDOPT ?= --config Debug
+#CMAKEOPT ?= -DCMAKE_BUILD_TYPE=Debug
+#BUILDOPT ?= --config Debug
 
 #===============================================================
 # options
 JOBS	 ?= -j 4
 BACKENDS ?= $(shell [ -f $(BCACHE) ] && (grep BACKENDS $(BCACHE) | cut -d= -f2) || echo backends.cmake)
+TARGETS  ?= $(shell [ -f $(TCACHE) ] && (grep TARGETS $(TCACHE) | cut -d= -f2) || echo regular.cmake)
 EMCC 	 ?= emcc
 
 #===============================================================
@@ -90,11 +92,16 @@ help:
 	@echo "  CMAKEOPT=<cmake options>    : pass options to cmake for project generation."
 	@echo "  BUILDOPT=<cmake options>    : pass options to cmake at build time (default to $(BUILDOPT))."
 	@echo "  BACKENDS=<backends file>    : see 'Backends' below"
+	@echo "  TARGETS=<targets file>      : see 'Targets' below"
 	@echo "  JOBS        : intended to set the number of tasks to run in parallel (default is $(JOBS))"
 	@echo
 	@echo "Backends:"
 	@echo "  the FAUST backends included by default are described in the '$(BACKENDS)' file"
 	@echo "  you can freely customize this file or use another file with the BACKENDS option"
+	@echo
+	@echo "Targets:"
+	@echo "  the targets included by default are described in the '$(TARGETS)' file"
+	@echo "  you can freely customize this file or use another file with the TARGETS option"
 	@echo
 	@echo "Project configuration targets:"
 	@echo "the following targets do not recompile but change the cmake generated project."
@@ -165,10 +172,10 @@ dynamiclib: $(PROJ)
 #===============================================================
 # building libfaust.a for ios
 #===============================================================
-ioslib: JOBS = "-jobs 4"
+ioslib: JOBS ?= -jobs 4
 ioslib: $(IOSDIR) $(IOSDIR)/faust.xcodeproj
 	cmake --build $(IOSDIR) --target staticlib $(BUILDOPT) -- $(JOBS)
-	cmake --build $(IOSDIR) --target OSCFaust $(BUILDOPT) --  $(JOBS)
+	cmake --build $(IOSDIR) --target oscstatic $(BUILDOPT) -- $(JOBS)
 
 $(IOSDIR)/faust.xcodeproj: CMakeLists.txt backends/ios.cmake
 	cd $(IOSDIR) && cmake -C ../backends/ios.cmake ..  -DINCLUDE_STATIC=on -DINCLUDE_HTTP=off -G Xcode
@@ -193,30 +200,37 @@ silent: $(FAUSTDIR)
 	cd $(FAUSTDIR) && cmake -DCMAKE_VERBOSE_MAKEFILE=OFF ..
 
 cmake: $(FAUSTDIR)
-	cd $(FAUSTDIR) && cmake -C ../backends/$(BACKENDS) $(CMAKEOPT) -G '$(GENERATOR)' ..
+	cd $(FAUSTDIR) && cmake -C ../backends/$(BACKENDS) -C ../targets/$(TARGETS) $(CMAKEOPT) -G '$(GENERATOR)' ..
 	@echo BACKENDS=$(BACKENDS) > $(BCACHE)
+	@echo TARGETS=$(TARGETS) > $(TCACHE)
 
 configstatic: STATIC ?= on
 configstatic: $(FAUSTDIR)
+	@echo "WARNING: the 'configstatic' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DINCLUDE_STATIC=$(STATIC) ..
 
 configdynamic: DYNAMIC ?= on
 configdynamic: $(FAUSTDIR)
+	@echo "WARNING: the 'configdynamic' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DINCLUDE_DYNAMIC=$(DYNAMIC) ..
 
 confighttp: HTTP ?= on
 confighttp: $(FAUSTDIR)
+	@echo "WARNING: the 'confighttp' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DINCLUDE_HTTP=$(HTTP) ..
 
 configoscdynamic: OSCDYN ?= on
 configoscdynamic:
+	@echo "WARNING: the 'configoscdynamic' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DOSCDYNAMIC=$(OSCDYN) ..
 
 confighttpdynamic: HTTPDYN ?= on
 confighttpdynamic:
+	@echo "WARNING: the 'confighttpdynamic' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DHTTPDYNAMIC=$(HTTPDYN) ..
 
 configall: $(FAUSTDIR)
+	@echo "WARNING: the 'configall' target is deprecated and will be removed in a future release. Use target files and the TARGET option instead."
 	cd $(FAUSTDIR) && cmake -DINCLUDE_STATIC=on -DINCLUDE_DYNAMIC=on -DINCLUDE_HTTP=on ..
 
 reset: $(FAUSTDIR)

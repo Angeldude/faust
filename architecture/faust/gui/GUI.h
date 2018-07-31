@@ -109,6 +109,13 @@ class GUI : public UI
         void addCallback(FAUSTFLOAT* zone, uiCallback foo, void* data);
         virtual void show() {};	
         virtual bool run() { return false; };
+
+        static void runAllGuis() {
+            std::list<GUI*>::iterator g;
+            for (g = fGuiList.begin(); g != fGuiList.end(); g++) {
+                (*g)->run();
+            }
+        }
     
         virtual void stop() { fStopped = true; }
         bool stopped() { return fStopped; }
@@ -224,7 +231,10 @@ struct uiCallbackItem : public uiItem {
  * Base class for timed items
  */
 
-// For precise timestamped control
+//-------------------------
+// For timestamped control
+//-------------------------
+
 struct DatedControl {
     
     double fDate;
